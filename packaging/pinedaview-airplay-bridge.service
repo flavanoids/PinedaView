@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# Tails shairport-sync's metadata pipe (duration + playback position only —
+# title/artist/play-pause already arrive over shairport-sync's own MQTT
+# topics, see docs/NOW_PLAYING.md) and republishes to the same broker
+# pineda-web reads. Install manually next to shairport-sync and pineda-web —
+# same reasoning as pineda-kiosk.service, this is per-device wiring:
+#
+#   sudo install -m 644 packaging/pineda-airplay-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now pineda-airplay-bridge.service
+#
+# Adjust User/Group, PINEDA_CONFIG_FILE and ExecStart's venv path to match
+# wherever pineda-web itself is installed on this device.
+[Unit]
+Description=PinedaDisplay AirPlay metadata bridge (shairport-sync pipe -> MQTT)
+After=shairport-sync.service network-online.target
+Wants=network-online.target
+PartOf=shairport-sync.service
+
+[Service]
+Type=simple
+User=pineda
+Group=pineda
+Environment=PINEDA_CONFIG_FILE=/opt/pinedaview/config.toml
+ExecStart=/opt/pinedaview/venv/bin/pineda-airplay-bridge
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

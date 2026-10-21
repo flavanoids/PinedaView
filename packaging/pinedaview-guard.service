@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Loads /etc/pineda-web/guard.nft before the network comes up. See the .nft
+# file for the rules. ExecStartPost re-adds an already-running cloudflared,
+# since (re)loading the table empties @tunnel_units and systemd only adds a unit's
+# cgroup when that unit starts.
+[Unit]
+Description=pineda-web guard: dashboard port reachable from the LAN, wg0 and localhost only, never through a tunnel
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for i in 1 2 3 4 5; do /usr/sbin/nft -f /etc/pineda-web/guard.nft && exit 0; sleep 1; done; exit 1'
+ExecStartPost=-/bin/sh -c 'test -d /sys/fs/cgroup/system.slice/cloudflared.service && /usr/sbin/nft add element inet pineda_web_guard tunnel_units { "system.slice/cloudflared.service" } || true'
+ExecReload=/usr/sbin/nft -f /etc/pineda-web/guard.nft
+ExecReload=-/bin/sh -c 'test -d /sys/fs/cgroup/system.slice/cloudflared.service && /usr/sbin/nft add element inet pineda_web_guard tunnel_units { "system.slice/cloudflared.service" } || true'
+ExecStop=/usr/sbin/nft delete table inet pineda_web_guard
+
+[Install]
+WantedBy=sysinit.target

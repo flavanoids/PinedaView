@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copy to config.toml (gitignored) and edit, or set PINEDA_* env vars instead.
+# Every value here is a default — an empty file works.
+
+units = "imperial"        # or "metric"
+theme = "blush"           # blush (default) · quiet_canvas · liquid_glass · warm · ocean · cocoa_ember · forest · halloween
+state_dir = "data"
+photos_dir = "data/photos"
+themes_dir = "themes"        # custom theme folders/files (.toml or .json, additive to built-ins)
+
+# Cards disabled by default:
+# "commute" (polls billed Google Directions API)
+# "phrase" (retired; live traffic cameras take its slot in the default stack)
+# Remove either from this list to enable.
+disabled_cards = ["commute", "phrase"]
+
+[location]
+query = "New York"        # a city, a US ZIP, or "lat,lon"
+# label = "Home"
+# latitude = 40.71
+# longitude = -74.01
+
+[api]
+host = "0.0.0.0"
+port = 8090
+db_path = "data/pineda.db"
+# write_token = "secret-token"   # require bearer token for mutations
+# admin_token = "admin-token"   # require bearer token for admin routes (reads + writes)
+# adopt_unknown_devices = true  # auto-adopt paired screens from primary server (for warm standby)
+# cors_origins = ["*"]
+
+# Home cameras (Eufy via Home Assistant → go2rtc): the home-cams card and the
+# full-screen camera card. With ha_url set, this server starts a camera's
+# livestream while its card is up and stops it after (battery cameras).
+# [cameras]
+# go2rtc = "http://127.0.0.1:1984"
+# streams = { front_door = "T8210P00000000XX" }   # name → go2rtc stream
+# titles = { front_door = "Front door" }
+# entities = { front_door = "camera.doorbell" }   # name → HA camera entity
+# snapshots_dir = "/var/lib/antigua/snapshots"
+# ha_url = "http://homeassistant.local:8123"
+# ha_token_file = "/etc/pineda-web/ha.env"        # HA_TOKEN=..., mode 600
+
+# MCP server at /mcp for a voice assistant (docs/MCP.md). Every call needs a
+# client's bearer token; `pineda-web mcp-token antigua` prints a token and the
+# block to paste here.
+# [mcp]
+# enabled = true
+# allowed_hosts = ["127.0.0.1:*", "localhost:*"]   # Host headers accepted
+# profile = "default"                              # whose theme the tools set
+# [mcp.clients.antigua]
+# token_sha256 = "…"
+# scopes = ["display:read", "display:write", "system", "camera:view"]
+
+[providers]
+weather_interval_s = 900
+air_quality_interval_s = 1800
+alerts_interval_s = 600
+
+# Optional weekday-morning countdown that takes the hero slot, then flashes.
+# Off by default.
+[countdown]
+enabled = false
+label = "Time to go"
+start = "07:30"
+end = "08:00"
+alert_seconds = 120
+weekdays_only = true
+
+# Only needed when this server runs on a different device than the kiosk
+# it's displayed on — see docs/OPERATIONS.md#split-host-control. Redirects
+# the QR-menu restart/reboot buttons over SSH to the actual kiosk device
+# instead of acting on this host. Leave unset for a single-device setup.
+# [control]
+# host = "192.0.2.50"
+# user = \"pineda\"
+# ssh_key = "/var/lib/pineda-web/control_ed25519"

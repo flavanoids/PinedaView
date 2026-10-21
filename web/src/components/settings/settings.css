@@ -1,0 +1,104 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Form controls shared by every Settings panel, so a select or a button looks
+   the same wherever it appears. Scoped to the sheet. */
+
+.settings-sheet
+  :where(
+    select,
+    textarea,
+    input:not([type]),
+    input[type="text"],
+    input[type="time"],
+    input[type="number"],
+    input[type="url"],
+    input[type="email"],
+    input[type="password"]
+  ) {
+  font: inherit;
+  font-size: var(--type-sm);
+  min-height: 2.5rem;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--on-stage) 16%, transparent);
+  background: color-mix(in srgb, var(--on-stage) 5%, transparent);
+  color: var(--on-stage);
+  max-width: 100%;
+}
+.settings-sheet :where(textarea) {
+  padding: 8px 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.settings-sheet :where(input[type="time"]) {
+  min-width: 7.5rem;
+}
+.settings-sheet :where(select, input, textarea, button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.settings-sheet :where(input[type="range"]) {
+  accent-color: var(--accent);
+}
+
+.settings-sheet .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--type-sm);
+  min-height: 2.5rem;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--on-stage) 20%, transparent);
+  background: none;
+  color: var(--on-stage);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.settings-sheet .btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--stage);
+  font-weight: 600;
+}
+.settings-sheet .btn.danger {
+  border-color: color-mix(in srgb, #e5484d 45%, transparent);
+  color: #e5484d;
+}
+.settings-sheet .btn.small {
+  min-height: 2rem;
+  padding: 0 12px;
+  font-size: var(--type-caption);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .settings-sheet .btn {
+    transition: transform var(--dur-fast) var(--ease-spring);
+  }
+  .settings-sheet .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+.settings-sheet .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.settings-sheet .hint {
+  font-size: var(--type-caption);
+  line-height: 1.4;
+  color: var(--on-stage-soft);
+}
+.settings-sheet .hint a {
+  color: inherit;
+}
+.settings-sheet .times {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.settings-sheet .times > span {
+  font-size: var(--type-caption);
+  color: var(--on-stage-soft);
+}

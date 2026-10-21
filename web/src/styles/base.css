@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+@import "./fonts.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--stage);
+  color: var(--on-stage);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  transition:
+    background var(--dur-normal) var(--ease-spring-gentle),
+    color var(--dur-normal) var(--ease-spring-gentle);
+}
+
+/* Settings → Appearance → "Use the background image with every theme": the
+   uploaded image behind a solid theme, under a wash of the theme's own stage
+   colour so the cards still read. (Liquid Glass layers it in tokens.css.) */
+:root[data-wallpaper]:not([data-surface="glass"]) body {
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--stage) 55%, transparent),
+      color-mix(in srgb, var(--stage) 55%, transparent)
+    ),
+    var(--glass-wallpaper) center / cover no-repeat,
+    var(--stage);
+}
+
+#app {
+  height: 100dvh;
+  width: 100vw;
+  /* The viewport-width container that card-independent chrome (wizard,
+     settings, status pill) resolves its `cqi` type against. */
+  container: app / inline-size;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  /* A contrasting halo so the ring is visible on any card colour or the glass. */
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--stage) 70%, transparent);
+}
+
+/* Visually hidden but available to assistive tech (labels, live-region prefixes). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[inert] {
+  /* Belt-and-braces: some engines don't yet dim inert subtrees. */
+  cursor: default;
+}
+
+/* A Pi display is a kiosk / wall dashboard — mouse, pointer, or touch input
+   must never leave a visible cursor arrow or hand on screen. Suppress the
+   cursor unconditionally across all elements when running on the Pi (unless
+   previewing another device from desktop). */
+:root[data-platform="pi"]:not([data-preview]),
+:root[data-platform="pi"]:not([data-preview]) *,
+:root[data-platform="pi"]:not([data-preview]) *::before,
+:root[data-platform="pi"]:not([data-preview]) *::after {
+  cursor: none !important;
+}

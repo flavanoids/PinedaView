@@ -1,0 +1,38 @@
+#!/bin/sh
+# Block personal details, recordings, and state databases from ever being committed.
+# Enable per clone: git config core.hooksPath .githooks
+
+# 1. Block databases, recordings, private keys, and runtime artifacts
+bad=$(git diff --cached --name-only --diff-filter=ACR | grep -iE \
+  '\.(wav|mp3|flac|ogg|opus|m4a|aac|webm|pcm|raw|log|jsonl|db|sqlite|key|enc)$|(^|/)(data|photos|node_modules|\.venv|dist)/' \
+  | grep -vE '^tests/fixtures/[^/]+\.(ya?ml|json)$' \
+  | grep -vE '^packages/protocol/openapi\.json$')
+if [ -n "$bad" ]; then
+  echo "pre-commit: refusing to commit binary, audio, database, or runtime data:" >&2
+  echo "$bad" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+# 2. Block personal details (IPs, home paths, names, hardware identifiers) in added lines.
+top=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+cd "$top" || exit 1
+patterns=$(mktemp)
+trap 'rm -f "$patterns"' EXIT
+printf '%s\n' 'ssh -i ' 'BEGIN [A-Z ]*PRIVATE KEY' >"$patterns"
+if [ -f "$top/.githooks/private-patterns" ]; then
+  grep -Ev '^[[:space:]]*(#|$)' "$top/.githooks/private-patterns" >>"$patterns"
+fi
+
+leaks=$(git diff --cached --name-only --diff-filter=ACMR -- . ':!.githooks/*' ':!LICENSE' ':!packaging/pinedaview-guard.nft' ':!*.lock' \
+  | while IFS= read -r f; do
+  git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' \
+    | grep -v 'Megan Rapinoe' \
+    | grep -Ef "$patterns" | sed "s|^+|$f: |"
+done)
+
+if [ -n "$leaks" ]; then
+  echo "pre-commit: personal details or private identifiers detected in added lines:" >&2
+  printf '%s\n' "$leaks" | cut -c1-160 | sed 's/^/  /' >&2
+  echo "Please scrub these details or move them to a gitignored config before committing." >&2
+  exit 1
+fi

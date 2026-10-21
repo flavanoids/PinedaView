@@ -1,0 +1,9 @@
+{
+  "id": "affirmation",
+  "name": "Affirmation",
+  "description": "A quote a day, deterministic, no repeats within 60 days.",
+  "author": "pinedaview",
+  "needs": ["provider:dailyContent"],
+  "slots": { "min": "small", "ideal": "medium", "max": "hero" },
+  "entry": "affirmation"
+}

@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=PinedaDisplay Web dashboard server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pineda
+Group=pineda
+Environment=PINEDA_STATE_DIR=/var/lib/pineda-web
+Environment=PINEDA_PHOTOS_DIR=/var/lib/pineda-web/photos
+Environment=PINEDA_CARDS_DIR=/var/lib/pineda-web/cards
+Environment=PINEDA_API__DB_PATH=/var/lib/pineda-web/pineda.db
+Environment=PINEDA_CONFIG_FILE=/etc/pineda-web/config.toml
+ExecStart=/usr/bin/pineda-web serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+StateDirectory=pineda-web
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/pineda-web
+
+[Install]
+WantedBy=multi-user.target

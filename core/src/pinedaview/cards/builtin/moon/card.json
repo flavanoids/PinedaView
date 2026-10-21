@@ -1,0 +1,11 @@
+{
+  "id": "moon",
+  "name": "Moon phase",
+  "description": "Synodic-month calculation, no network.",
+  "author": "pinedaview",
+  "provides": ["moon"],
+  "provider": "moon",
+  "refresh": { "interval": "1h" },
+  "slots": { "min": "small", "ideal": "small", "max": "medium" },
+  "entry": "moon"
+}

@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# pineda-web answers the LAN, wg0 and loopback only, never the internet.
+# Installed to /etc/pineda-web/guard.nft and loaded by pineda-web-guard.service.
+#
+# Two ways in are closed:
+#   input   a packet to :8090 from a public (non-private) address is dropped,
+#           e.g. a router port-forward or a public IPv6 address.
+#   output  a process in a tunnel's cgroup (cloudflared, ...) can't connect to
+#           :8090, so a tunnel ingress or a reverse proxy pointed at the
+#           dashboard gets a reset instead of the app. systemd adds each tunnel
+#           unit's cgroup to @tunnel_units when it starts (NFTSet= in
+#           cloudflared-pineda-web-guard.conf).
+# Change 8090 here if [api] port differs.
+table inet pineda_web_guard
+delete table inet pineda_web_guard
+
+table inet pineda_web_guard {
+	set tunnel_units {
+		type cgroupsv2
+	}
+
+	chain input {
+		type filter hook input priority filter; policy accept;
+		iifname { "lo", "wg0" } accept
+		ip saddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } accept
+		ip6 saddr { fe80::/10, fc00::/7 } accept
+		# Every rule below names the port: an unqualified drop here would also
+		# eat DNS/ICMP replies from the internet.
+		tcp dport 8090 limit rate 10/minute log prefix "pineda-web-guard: " level info
+		tcp dport 8090 counter drop
+	}
+
+	chain output {
+		type filter hook output priority filter; policy accept;
+		tcp dport 8090 socket cgroupv2 level 2 @tunnel_units counter reject with tcp reset
+	}
+}

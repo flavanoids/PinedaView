@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+services:
+  pineda-web:
+    image: ghcr.io/flavanoids/pinedaview:latest
+    # For a local build instead of the published image, comment `image` and
+    # uncomment:
+    # build: .
+    container_name: pineda-web
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/data
+      - ./config:/etc/pineda-web
+    restart: unless-stopped

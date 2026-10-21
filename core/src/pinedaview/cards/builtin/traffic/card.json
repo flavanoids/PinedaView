@@ -1,0 +1,40 @@
+{
+  "id": "traffic",
+  "name": "Traffic cams & quote",
+  "description": "Houston TranStar freeway speed map and traffic cameras during commute windows.",
+  "author": "pinedaview",
+  "needs": ["network", "provider:dailyContent"],
+  "provides": ["traffic"],
+  "provider": "trafficCams",
+  "refresh": { "interval": "3m" },
+  "permissions": {
+    "fetchHosts": ["www.houstontranstar.org", "traffic.houstontranstar.org"]
+  },
+  "slots": { "min": "small", "ideal": "medium", "max": "hero" },
+  "detail": true,
+  "settings": {
+    "cameras": {
+      "type": "list",
+      "title": "Cameras",
+      "description": "TranStar camera numbers, one per line, in the order they show.",
+      "default": ["407", "408", "614", "324", "1138", "623"]
+    },
+    "mapCenter": {
+      "type": "string",
+      "title": "Map centre",
+      "description": "Latitude, longitude. Leave blank to use your weather location.",
+      "default": ""
+    },
+    "mapZoom": {
+      "type": "integer",
+      "title": "Map zoom",
+      "description": "Level of detail: 11 (metro-wide), 12 (standard corridor), 13 (neighborhood).",
+      "default": 12,
+      "min": 10,
+      "max": 14
+    },
+    "weekdayWindow": { "type": "timerange", "title": "Weekdays", "description": "When the cameras show on weekdays.", "default": "05:00-23:00" },
+    "weekendWindow": { "type": "timerange", "title": "Weekends", "description": "When the cameras show at the weekend.", "default": "05:00-23:00" }
+  },
+  "entry": "traffic"
+}

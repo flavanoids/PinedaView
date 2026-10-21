@@ -1,0 +1,30 @@
+{
+  "id": "square",
+  "name": "Square",
+  "gap": "var(--space-2)",
+  "tiers": [
+    {
+      "id": "compact",
+      "maxWidth": 640,
+      "columns": "1fr 1fr",
+      "heroColSpan": 2,
+      "heroRowSpan": 1,
+      "cellMinHeight": "calc(clamp(88px, 22vw, 150px) * var(--ui-scale))"
+    },
+    {
+      "id": "mid",
+      "maxWidth": 1024,
+      "columns": "repeat(3, minmax(0, 1fr))",
+      "heroColSpan": 2,
+      "heroRowSpan": 2,
+      "cellMinHeight": "calc(clamp(120px, 18vw, 200px) * var(--ui-scale))"
+    },
+    {
+      "id": "wide",
+      "columns": "repeat(4, minmax(0, 1fr))",
+      "heroColSpan": 2,
+      "heroRowSpan": 2,
+      "cellMinHeight": "calc(clamp(130px, 16vw, 240px) * var(--ui-scale))"
+    }
+  ]
+}

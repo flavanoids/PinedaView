@@ -1,0 +1,13 @@
+{
+  "id": "air-quality",
+  "name": "Air quality",
+  "description": "US AQI and particulates from Open-Meteo. Follows the weather location.",
+  "author": "pinedaview",
+  "needs": ["provider:weather", "network"],
+  "provides": ["airQuality"],
+  "provider": "airQuality",
+  "refresh": { "interval": "30m" },
+  "permissions": { "fetchHosts": ["air-quality-api.open-meteo.com"] },
+  "slots": { "min": "strip", "ideal": "small", "max": "small" },
+  "entry": "air-quality"
+}

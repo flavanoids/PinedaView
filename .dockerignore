@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+**/.coverage
+core/src/pinedaview/webroot
+core/data
+data
+photos
+.git
+*.db
+*.sqlite
+config.toml
+.env
+.env.*

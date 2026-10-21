@@ -1,0 +1,9 @@
+{
+  "id": "timer",
+  "name": "Timer",
+  "description": "Countdown timers, set from Settings — a kitchen timer for the display.",
+  "author": "pinedaview",
+  "slots": { "min": "small", "ideal": "medium", "max": "medium" },
+  "tier": { "min": "lite" },
+  "entry": "timer"
+}

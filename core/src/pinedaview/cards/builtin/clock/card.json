@@ -1,0 +1,9 @@
+{
+  "id": "clock",
+  "name": "Clock",
+  "description": "Time and date. Ticks on the client.",
+  "author": "pinedaview",
+  "slots": { "min": "small", "ideal": "medium", "max": "hero" },
+  "tier": { "min": "lite" },
+  "entry": "clock"
+}

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keeps the standby pineda-web's state the same as this (primary) one's, both
+# ways — see scripts/sync-standby.sh and docs/OPERATIONS.md#standby-server.
+# Install on the primary: the script as /usr/local/sbin/pineda-sync-standby,
+# this unit and pineda-standby-sync.timer in /etc/systemd/system, and set the
+# standby in /etc/default/pineda-standby-sync:
+#   PINEDA_STANDBY=root@192.0.2.16
+#   PINEDA_CAMS_DIR=/var/lib/antigua-cams
+[Unit]
+Description=Sync pineda-web state with the standby
+After=network-online.target pineda-web.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/default/pineda-standby-sync
+ExecStart=/usr/local/sbin/pineda-sync-standby /var/lib/pineda-web ${PINEDA_STANDBY}
+TimeoutStartSec=15min

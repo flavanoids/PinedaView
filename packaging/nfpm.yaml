@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+# One manifest → .deb and .rpm:  nfpm pkg -f packaging/nfpm.yaml -p deb -t dist/
+#                                nfpm pkg -f packaging/nfpm.yaml -p rpm -t dist/
+#
+# Expects a self-contained virtualenv already built at /opt/pineda-web/venv
+# (see scripts/build-package.sh). ${VERSION} and ${ARCH} come from the env.
+name: pineda-web
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: web
+priority: optional
+maintainer: flavanoids <noreply@users.noreply.github.com>
+description: |
+  Self-hosted server that renders the PinedaDisplay dashboard in any browser,
+  turning spare phones and tablets into ambient screens.
+vendor: PinedaDisplay Web
+homepage: https://github.com/flavanoids/PinedaView
+license: Apache-2.0
+
+depends:
+  - python3
+  - nftables
+
+contents:
+  - src: /opt/pineda-web/venv
+    dst: /opt/pineda-web/venv
+  - src: packaging/pineda-web.wrapper
+    dst: /usr/bin/pineda-web
+    file_info:
+      mode: 0755
+  - src: packaging/pineda-web.service
+    dst: /lib/systemd/system/pineda-web.service
+  - src: packaging/pineda-restart.rules
+    dst: /opt/pineda-web/pineda-restart.rules
+  - src: packaging/pineda-web-guard.service
+    dst: /lib/systemd/system/pineda-web-guard.service
+  - src: packaging/pineda-web-guard.nft
+    dst: /etc/pineda-web/guard.nft
+    type: config|noreplace
+  - src: packaging/cloudflared-pineda-web-guard.conf
+    dst: /etc/systemd/system/cloudflared.service.d/pineda-web-guard.conf
+    type: config|noreplace
+  - src: core/config.example.toml
+    dst: /etc/pineda-web/config.toml
+    type: config|noreplace
+  - dst: /var/lib/pineda-web
+    type: dir
+    file_info:
+      mode: 0750
+
+scripts:
+  postinstall: packaging/postinstall.sh
+  preremove: packaging/preremove.sh
+  postremove: packaging/postremove.sh

@@ -1,0 +1,28 @@
+{
+  "current_condition": [
+    {
+      "temp_F": "85", "FeelsLikeF": "88", "weatherCode": "113",
+      "weatherDesc": [{ "value": "Sunny" }],
+      "humidity": "43", "windspeedMiles": "4", "winddir16Point": "N", "uvIndex": "6"
+    }
+  ],
+  "nearest_area": [
+    {
+      "latitude": "29.8300", "longitude": "-95.5000",
+      "areaName": [{ "value": "Houston" }], "region": [{ "value": "Texas" }]
+    }
+  ],
+  "weather": [
+    {
+      "date": "2026-08-28", "maxtempF": "95", "mintempF": "75",
+      "astronomy": [{ "sunrise": "06:55 AM", "sunset": "07:45 PM" }],
+      "hourly": [
+        { "time": "0", "weatherCode": "113", "chanceofrain": "0" },
+        { "time": "300", "weatherCode": "113" },
+        { "time": "600", "weatherCode": "116" },
+        { "time": "900", "weatherCode": "116" },
+        { "time": "1200", "weatherCode": "116", "weatherDesc": [{ "value": "partly cloudy" }], "chanceofrain": "20" }
+      ]
+    }
+  ]
+}

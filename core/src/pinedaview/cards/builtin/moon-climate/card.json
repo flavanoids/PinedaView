@@ -1,0 +1,9 @@
+{
+  "id": "moon-climate",
+  "name": "Moon & indoor climate",
+  "description": "A mini-card pairing — moon phase and indoor AC telemetry sharing one cell instead of two.",
+  "author": "pinedaview",
+  "needs": ["provider:moon", "provider:indoorClimate"],
+  "slots": { "min": "small", "ideal": "small", "max": "medium" },
+  "entry": "moon-climate"
+}

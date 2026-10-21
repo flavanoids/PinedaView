@@ -1,0 +1,270 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Roboto — the PinedaDisplay typeface, restoring the Material look the Pi
+   dashboard originally shipped with. Google ships it as a single variable
+   file (wght 100–900); we reference that one file from four @font-face
+   rules at fixed weights so the browser picks the right static instance
+   per weight without four separate downloads. Apache 2.0, see
+   ../assets/fonts/Roboto-LICENSE.txt. */
+@font-face {
+  font-family: "Roboto";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Roboto.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Roboto";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url("../assets/fonts/Roboto-Italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Roboto";
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/Roboto.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Roboto";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/Roboto.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Roboto";
+  font-weight: 900;
+  font-display: swap;
+  src: url("../assets/fonts/Roboto.woff2") format("woff2");
+}
+
+/* Aileron — kept as the fallback face and for anything still referencing it
+   directly. The Pi dashboard renders a read-from-across-the-room kiosk, so
+   only the weights it actually uses are bundled: regular for body, semibold
+   for labels/headings, bold for hero numbers (--weight-body / --weight-label
+   / --weight-display in tokens.css). Black is kept for the rare extra-loud
+   moment; italic for quoted text. */
+@font-face {
+  font-family: "Aileron";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Aileron-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Aileron";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url("../assets/fonts/Aileron-Italic.otf") format("opentype");
+}
+@font-face {
+  font-family: "Aileron";
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/Aileron-SemiBold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Aileron";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/Aileron-Bold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Aileron";
+  font-weight: 900;
+  font-display: swap;
+  src: url("../assets/fonts/Aileron-Black.otf") format("opentype");
+}
+
+/* Fraunces — the clock's face only. An old-style display serif with a "soft"
+   and a "wonk" axis and real optical sizing, so the hero time reads as a
+   considered object rather than a status readout. SIL OFL 1.1, see
+   ../assets/fonts/Fraunces-OFL.txt. Variable (wght 400–700, opsz 9–144),
+   subset to the glyphs a clock and a date line use. */
+@font-face {
+  font-family: "Fraunces";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/Fraunces.woff2") format("woff2");
+}
+
+/* Bricolage Grotesque — the "Groovy" theme's body/display typeface (see
+   tokens.css's [data-theme="groovy"] block, which points --font-display/
+   --font-body here; the clock keeps Fraunces in every theme, groovy
+   included). A grotesque with just enough wonk in its curves to read as
+   70s-adjacent without being a script or slab face — modern, not pastiche.
+   SIL OFL, variable (wght 200-800, opsz 12-96), see
+   ../assets/fonts/BricolageGrotesque-OFL.txt. */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../assets/fonts/BricolageGrotesque.woff2") format("woff2");
+}
+
+/* Clock faces only, and each only loads when a screen is set to that face:
+   Anton (SIL OFL) for the poster column, DSEG7 Classic (SIL OFL) for the
+   seven-segment LCD. Licenses alongside the files. */
+@font-face {
+  font-family: "Anton";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Anton.woff2") format("woff2");
+}
+@font-face {
+  font-family: "DSEG7Classic";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/DSEG7Classic.woff2") format("woff2");
+}
+
+/* Cormorant Light — the small-hours night clock only (NightClock.svelte).
+   A thin, tall Garamond-descended display serif. Instanced to wght 300 and
+   subset to Basic Latin. SIL OFL 1.1, see ../assets/fonts/Cormorant-OFL.txt. */
+@font-face {
+  font-family: "Cormorant";
+  font-weight: 300;
+  font-display: swap;
+  src: url("../assets/fonts/Cormorant.woff2") format("woff2");
+}
+
+/* Typefaces a profile can pick over any theme (Settings → Display → Font;
+   FONTS in @pinedaview/tokens). Variable, subset to Latin, from Fontsource.
+   Each downloads only when something is drawn in it. SIL OFL 1.1, licenses
+   alongside the files. */
+@font-face {
+  font-family: "Google Sans Flex";
+  font-weight: 1 1000;
+  font-display: swap;
+  src: url("../assets/fonts/GoogleSansFlex.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../assets/fonts/AtkinsonHyperlegibleNext.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Zalando Sans";
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../assets/fonts/ZalandoSans.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/Geist.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Mona Sans";
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../assets/fonts/MonaSans.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/Inter.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/InstrumentSans.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/HankenGrotesk.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("../assets/fonts/SchibstedGrotesk.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Newsreader";
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../assets/fonts/Newsreader.woff2") format("woff2");
+}
+
+/* More pickable faces, in styles the grotesks above don't cover: serifs,
+   display, rounded, mono, handwriting, pixel. Latin subsets from Fontsource,
+   SIL OFL 1.1, licenses alongside the files. Instrument Serif, Young Serif
+   and Jacquard 24 are single-weight; bold text in them is synthesised. */
+@font-face {
+  font-family: "Instrument Serif";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/InstrumentSerif.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Young Serif";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/YoungSerif.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Playfair";
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("../assets/fonts/Playfair.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Funnel Display";
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("../assets/fonts/FunnelDisplay.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Unbounded";
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../assets/fonts/Unbounded.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Parkinsans";
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("../assets/fonts/Parkinsans.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fredoka";
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("../assets/fonts/Fredoka.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Host Grotesk";
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("../assets/fonts/HostGrotesk.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/GeistMono.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Caveat";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/Caveat.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/PixelifySans.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Jacquard 24";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Jacquard24.woff2") format("woff2");
+}

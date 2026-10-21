@@ -1,0 +1,30 @@
+{
+  "id": "material",
+  "name": "Material",
+  "gap": "var(--space-4)",
+  "tiers": [
+    {
+      "id": "compact",
+      "maxWidth": 640,
+      "columns": "1fr",
+      "heroColSpan": 1,
+      "heroRowSpan": 1,
+      "cellMinHeight": "calc(clamp(104px, 26vw, 180px) * var(--ui-scale))"
+    },
+    {
+      "id": "mid",
+      "maxWidth": 1100,
+      "columns": "repeat(2, minmax(0, 1fr))",
+      "heroColSpan": 2,
+      "heroRowSpan": 1,
+      "cellMinHeight": "calc(clamp(140px, 30vw, 240px) * var(--ui-scale))"
+    },
+    {
+      "id": "wide",
+      "columns": "repeat(4, minmax(0, 1fr))",
+      "heroColSpan": 2,
+      "heroRowSpan": 2,
+      "cellMinHeight": "calc(clamp(150px, 20vw, 300px) * var(--ui-scale))"
+    }
+  ]
+}

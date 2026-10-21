@@ -1,0 +1,9 @@
+{
+  "id": "daily-content",
+  "name": "Daily content feed",
+  "description": "Publishes the day's affirmation and multilingual word. Utility — no view of its own.",
+  "author": "pinedaview",
+  "provides": ["dailyContent"],
+  "provider": "dailyContent",
+  "refresh": { "interval": "1h" }
+}

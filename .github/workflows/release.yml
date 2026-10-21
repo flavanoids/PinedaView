@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write # PyPI trusted publishing
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: pnpm }
+      - uses: astral-sh/setup-uv@v5
+        with: { python-version: "3.12" }
+      - name: Bundle the web client into the package
+        run: sh scripts/stage-web.sh
+      - name: Build sdist + wheel
+        run: uv build --project core --out-dir dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+      - uses: actions/upload-artifact@v4
+        with: { name: python-dist, path: dist/* }
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/pineda-web
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner_arch: x86_64
+          - arch: arm64
+            runner_arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: pnpm }
+      - uses: docker/setup-qemu-action@v3
+      - name: Build .deb + .rpm in a ${{ matrix.arch }} container
+        run: |
+          sh scripts/stage-web.sh
+          VERSION="${GITHUB_REF_NAME#v}"
+          docker run --rm --platform linux/${{ matrix.arch }} \
+            -v "$PWD:/w" -w /w -e VERSION="$VERSION" \
+            python:3.12-slim bash -euo pipefail -c '
+              apt-get update -qq && apt-get install -y -qq curl
+              curl -sSfL https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_$(dpkg --print-architecture).deb -o /tmp/nfpm.deb
+              dpkg -i /tmp/nfpm.deb
+              python3 -m venv /opt/pineda-web/venv
+              /opt/pineda-web/venv/bin/pip install -q --upgrade pip wheel
+              /opt/pineda-web/venv/bin/pip install -q ./core
+              mkdir -p dist
+              ARCH='"${{ matrix.arch }}"' nfpm pkg -f packaging/nfpm.yaml -p deb -t dist/
+              ARCH='"${{ matrix.arch }}"' nfpm pkg -f packaging/nfpm.yaml -p rpm -t dist/
+            '
+      - name: Smoke test the .deb
+        if: matrix.arch == 'amd64'
+        run: |
+          docker run --rm -v "$PWD/dist:/d" debian:12 bash -euo pipefail -c '
+            apt-get update -qq && apt-get install -y -qq python3 systemd
+            dpkg -i /d/*.deb || apt-get install -f -y
+            PINEDA_STATE_DIR=/tmp/s PINEDA_API__DB_PATH=/tmp/s/p.db \
+              /usr/bin/pineda-web serve & pid=$!
+            for i in $(seq 1 30); do
+              curl -sf http://127.0.0.1:8090/api/health && break || sleep 1
+            done
+            curl -sf http://127.0.0.1:8090/ | grep -qi "<!doctype html"
+            kill $pid
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.arch }}
+          path: dist/*
+
+  release:
+    needs: [python, docker, packages]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Attach artifacts to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

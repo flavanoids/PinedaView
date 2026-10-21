@@ -1,0 +1,9 @@
+{
+  "id": "forecast",
+  "name": "Forecast",
+  "description": "Three-day outlook. Shares the weather feed.",
+  "author": "pinedaview",
+  "needs": ["provider:weather"],
+  "slots": { "min": "strip", "ideal": "strip", "max": "medium" },
+  "entry": "forecast"
+}

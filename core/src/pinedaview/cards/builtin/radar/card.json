@@ -1,0 +1,30 @@
+{
+  "id": "radar",
+  "name": "Rain radar",
+  "description": "Latest radar image centered on your location (RainViewer), with NEXRAD storm-cell tracks (US).",
+  "author": "pinedaview",
+  "needs": ["location", "network"],
+  "provides": ["radar"],
+  "provider": "radar",
+  "refresh": { "interval": "10m" },
+  "permissions": {
+    "fetchHosts": [
+      "api.rainviewer.com",
+      "tilecache.rainviewer.com",
+      "services.arcgisonline.com",
+      "mesonet.agron.iastate.edu"
+    ]
+  },
+  "slots": { "min": "small", "ideal": "medium", "max": "hero" },
+  "settings": {
+    "hideBelow": {
+      "type": "integer",
+      "title": "Hide on dry days (%)",
+      "description": "Hide the radar when the chance of rain in the next day is below this. Set 0 to always show it.",
+      "default": 20,
+      "min": 0,
+      "max": 100
+    }
+  },
+  "entry": "radar"
+}

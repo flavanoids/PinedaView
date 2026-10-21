@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "id": 4699066,
+      "name": "Houston",
+      "latitude": 29.7633,
+      "longitude": -95.3633,
+      "country_code": "US",
+      "admin1": "Texas",
+      "timezone": "America/Chicago"
+    }
+  ],
+  "generationtime_ms": 0.5
+}

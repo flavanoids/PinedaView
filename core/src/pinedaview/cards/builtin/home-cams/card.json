@@ -1,0 +1,11 @@
+{
+  "id": "home-cams",
+  "name": "Home cameras",
+  "description": "The latest doorbell and garage photos Antigua takes every so often (battery cameras, so never live here), with a note when one needs charging.",
+  "author": "pinedaview",
+  "provides": ["homeCams"],
+  "provider": "homeCams",
+  "refresh": { "interval": "1m" },
+  "slots": { "min": "small", "ideal": "small", "max": "medium" },
+  "entry": "home-cams"
+}

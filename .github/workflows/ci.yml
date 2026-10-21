@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spdx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: node scripts/check-spdx.mjs
+
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - run: uv sync --frozen
+        working-directory: core
+      - run: uv run ruff check .
+        working-directory: core
+      - run: uv run ruff format --check .
+        working-directory: core
+      - run: uv run mypy .
+        working-directory: core
+      - run: uv run pytest -q
+        working-directory: core
+      - name: OpenAPI schema is current
+        run: uv run --project core python scripts/export-openapi.py --check
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --if-present run check
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: pnpm }
+      - uses: astral-sh/setup-uv@v5
+        with: { python-version: "3.11" }
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm audit (high+)
+        run: pnpm audit --audit-level high
+      - name: pip-audit
+        run: uvx pip-audit --strict -r <(uv export --project core --no-hashes --no-dev --no-emit-project)
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: pineda-web:ci
+      - name: Smoke test — health + the bundled client
+        run: |
+          docker run -d --name pw -p 8090:8090 -e PINEDA_STATE_DIR=/data/state pineda-web:ci
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8090/api/health && break || sleep 1
+          done
+          curl -sf http://127.0.0.1:8090/api/health | grep -q '"app_version"'
+          curl -sf http://127.0.0.1:8090/ | grep -qi '<!doctype html'
+          docker rm -f pw

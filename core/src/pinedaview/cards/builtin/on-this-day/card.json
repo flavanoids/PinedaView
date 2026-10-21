@@ -1,0 +1,12 @@
+{
+  "id": "on-this-day",
+  "name": "On this day",
+  "description": "A photo taken on today's date in a past year, from the household's own photo library.",
+  "author": "pinedaview",
+  "needs": ["photos"],
+  "provides": ["onThisDay"],
+  "provider": "onThisDay",
+  "refresh": { "interval": "1h" },
+  "slots": { "min": "small", "ideal": "small", "max": "medium" },
+  "entry": "on-this-day"
+}

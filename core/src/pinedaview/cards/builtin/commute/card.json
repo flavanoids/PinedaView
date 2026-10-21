@@ -1,0 +1,17 @@
+{
+  "id": "commute",
+  "name": "Commute",
+  "description": "Live drive times to your saved stops.",
+  "author": "pinedaview",
+  "needs": ["location", "network", "secret:google_maps"],
+  "provides": ["commute"],
+  "provider": "commute",
+  "refresh": { "interval": "4m" },
+  "permissions": { "fetchHosts": ["maps.googleapis.com"] },
+  "slots": { "min": "strip", "ideal": "hero", "max": "hero" },
+  "settings": {
+    "stops": { "type": "list", "title": "Destinations", "description": "One per line: a name, a vertical bar, then the address — for example “Work | 1 Main St, Houston”.", "default": [] },
+    "rushWindow": { "type": "timerange", "title": "Rush hour", "description": "Drive times stand out between these times.", "default": "06:30-09:00" }
+  },
+  "entry": "commute"
+}

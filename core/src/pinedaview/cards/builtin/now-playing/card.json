@@ -1,0 +1,9 @@
+{
+  "id": "now-playing",
+  "name": "Now playing",
+  "description": "AirPlay album art + track info from shairport-sync over MQTT (read-only). See docs/NOW_PLAYING.md.",
+  "author": "pinedaview",
+  "needs": ["mqtt:airplaypi/track"],
+  "slots": { "min": "small", "ideal": "hero", "max": "hero" },
+  "entry": "now-playing"
+}

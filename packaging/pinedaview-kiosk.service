@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# Reference unit for a wall-mounted / kiosk display: a Wayland compositor
+# (cage) running Chromium full-screen against the local pineda-web server.
+# Install manually per device — device hardware, GPU, and the local user
+# vary too much to package generically:
+#
+#   sudo install -m 644 packaging/pineda-kiosk.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now pineda-kiosk.service
+#
+# Adjust User/Group and XDG_RUNTIME_DIR's uid to match the target account.
+#
+# The ExecStart URL matters beyond just this Chromium instance: the app
+# builds its own QR codes and share links (photo upload, "add another
+# screen") from `location.origin` — whatever URL Chromium loaded it with.
+# Point it at this device's LAN-reachable hostname (its mDNS name, e.g.
+# `http://<hostname>.local:8090/`, or a static IP), never `localhost` —
+# `localhost` only means "this Pi" to the Pi itself; a phone that scans a
+# QR built from it is asking its own network for something that isn't there.
+[Unit]
+Description=PinedaDisplay kiosk display (cage + Chromium)
+After=pineda-web.service getty@tty1.service systemd-user-sessions.service
+Wants=pineda-web.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=pineda
+Group=pineda
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_SESSION_TYPE=wayland
+Restart=always
+RestartSec=3
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do curl -sf http://localhost:8090/ >/dev/null && exit 0; sleep 1; done; exit 1'
+# Invokes the real chromium binary directly, NOT /usr/bin/chromium — on
+# Debian/Raspberry Pi OS that path is a wrapper script (/etc/chromium.d/*)
+# that unconditionally injects --force-renderer-accessibility (forces a
+# full accessibility-tree rebuild on every layout change — real, continuous
+# CPU cost on a kiosk with no screen reader ever attached) plus
+# --enable-remote-extensions/--load-extension (auto-loads whatever's
+# installed in the profile, e.g. an ad blocker — dead weight against one
+# trusted local URL). Bypassing the wrapper means this flag list is the
+# complete, real set — no hidden additions. Kept the wrapper's genuinely
+# useful defaults explicit (`--enable-gpu-rasterization`, `--use-angle=gles`)
+# and added `--disable-extensions` instead of loading whatever's profiled.
+# Deliberately NOT `--disable-dev-shm-usage` (the wrapper adds it): it moves
+# Chromium's shared memory from /dev/shm (RAM, half of RAM by default) to
+# /tmp, which on Raspberry Pi OS is the SD card — measured ~6 MB/s of
+# renderer writes from photo decodes alone. The flag exists for Docker's
+# 64 MB /dev/shm; a Pi's is ~900 MB. See docs/OPERATIONS.md.
+# If your distro's chromium package doesn't wrap the binary this way (check
+# `file /usr/bin/chromium`), `/usr/bin/chromium` is fine to use directly.
+# `?pi=1` seeds kiosk provisioning on first paint: floors motion tier to lite,
+# drops heavy backdrop-filter/glass effects, and suppresses the cursor
+# unconditionally (`cursor: none !important`).
+ExecStart=/usr/bin/cage -- /usr/lib/chromium/chromium \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --no-first-run \
+  --disable-session-crashed-bubble \
+  --disable-features=TranslateUI \
+  --check-for-update-interval=31536000 \
+  --ozone-platform=wayland \
+  --password-store=basic \
+  --disable-extensions \
+  --enable-gpu-rasterization \
+  --use-angle=gles \
+  http://CHANGE-ME.local:8090/?pi=1
+
+[Install]
+WantedBy=graphical.target

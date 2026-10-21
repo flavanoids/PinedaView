@@ -1,0 +1,15 @@
+{
+  "name": "@pinedaview/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "generate": "openapi-typescript openapi.json -o src/schema.gen.ts",
+    "check": "pnpm run generate && git diff --exit-code -- src/schema.gen.ts && tsc --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.5.0",
+    "typescript": "^5.7.2"
+  }
+}

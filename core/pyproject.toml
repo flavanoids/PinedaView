@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: Apache-2.0
+[project]
+name = "pinedaview"
+version = "1.0.0"
+description = "Self-hosted ambient display server and companion dashboard."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "flavanoids" }]
+dependencies = [
+  "pydantic-settings>=2.6,<3",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.32,<1",
+  "httpx>=0.27,<1",
+  "pillow>=12.3,<13",
+  "python-multipart>=0.0.12",
+  "watchfiles>=0.24",
+  "tomli-w>=1.0",
+  "cryptography>=43",
+  "paho-mqtt>=2.1",
+  "icalendar>=6.0,<7",
+  "recurring-ical-events>=3.0,<4",
+  "astral>=3.2,<4",
+  # iPhone ProRAW (.dng) uploads: the full-size JPEG Apple embeds in them.
+  "rawpy>=0.27,<1",
+  "mcp>=2.0.1,<3",
+]
+
+[project.optional-dependencies]
+# The Photo Clock's depth effect (subject cutouts); ~1 GB model on first use.
+depth = ["rembg[cpu]>=2.0.85"]
+
+[project.scripts]
+pinedaview = "pinedaview.cli:main"
+pinedaview-airplay-bridge = "pinedaview.airplay_bridge:main"
+pineda-web = "pinedaview.cli:main"
+pineda-airplay-bridge = "pinedaview.airplay_bridge:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pinedaview"]
+
+[tool.hatch.build]
+# The release build drops the compiled web client here; it is .gitignored, so
+# tell hatchling to bundle it into the wheel anyway.
+artifacts = ["src/pinedaview/webroot/**"]
+
+[dependency-groups]
+dev = [
+  "ruff>=0.9,<0.10",
+  "mypy>=1.14",
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "pytest-asyncio>=0.24",
+  "asgi-lifespan>=2.1",
+  "types-icalendar>=6.0",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# Vendored content — data, not code. Kept verbatim from PinedaDisplay.
+extend-exclude = [
+  "src/pinedaview/content/affirmations.py",
+  "src/pinedaview/content/multilingual_words.py",
+  "src/pinedaview/content/spanish_phrases.py",
+  "src/pinedaview/content/weather_icons.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "B", "C90", "SIM", "UP", "ARG", "RUF", "I", "PTH", "RET", "TID"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+# Test doubles implement real interfaces; unused signature args are expected.
+"tests/**" = ["ARG002"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+  "pinedaview.content.affirmations",
+  "pinedaview.content.multilingual_words",
+  "pinedaview.content.spanish_phrases",
+  "pinedaview.content.weather_icons",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["paho.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["recurring_ical_events", "rembg", "rawpy", "rawpy.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=pinedaview --cov-report=term-missing --cov-fail-under=85"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+omit = ["src/pinedaview/content/affirmations.py", "src/pinedaview/content/multilingual_words.py", "src/pinedaview/content/spanish_phrases.py", "src/pinedaview/content/weather_icons.py"]

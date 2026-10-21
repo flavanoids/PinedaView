@@ -1,0 +1,39 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "description": "Conditions and the five-day outlook, the next 12 hours, and how today compares with normal and the records.",
+  "author": "pinedaview",
+  "needs": [
+    "location",
+    "network"
+  ],
+  "provides": [
+    "weather"
+  ],
+  "provider": "weather",
+  "refresh": {
+    "interval": "15m",
+    "jitter": "90s"
+  },
+  "slots": {
+    "min": "small",
+    "ideal": "medium",
+    "max": "hero"
+  },
+  "permissions": {
+    "fetchHosts": [
+      "api.open-meteo.com",
+      "geocoding-api.open-meteo.com",
+      "data.rcc-acis.org"
+    ]
+  },
+  "settings": {
+    "showFeelsLike": {
+      "type": "boolean",
+      "title": "Show “feels like”",
+      "default": true
+    }
+  },
+  "entry": "weather",
+  "detail": true
+}

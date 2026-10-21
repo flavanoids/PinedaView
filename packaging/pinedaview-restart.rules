@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: Apache-2.0
+// Lets the unprivileged web server account restart just the kiosk unit and
+// reboot the device via systemd/logind over D-Bus (what POST
+// /api/control/restart-display and /api/control/restart-system in control.py
+// shell out to) instead of sudo/setuid, which a hardened service — see
+// pineda-web.service's NoNewPrivileges=true — can't use anyway.
+//
+// Covers both documented deployment styles: the packaged .deb's dedicated
+// "pineda" system account, and a manual single-Pi setup that runs the server
+// under the owner's own login (e.g. "kiosk", as in pinedaview-kiosk.service).
+// Edit the list if your service runs as a different account.
+//
+// Install: sudo install -m 644 packaging/pineda-restart.rules \
+//            /etc/polkit-1/rules.d/49-pineda-web.rules
+//          sudo systemctl restart polkit
+polkit.addRule(function (action, subject) {
+  if (subject.user != "pineda" && subject.user != \"kiosk\") return;
+
+  if (action.id == "org.freedesktop.login1.reboot") {
+    return polkit.Result.YES;
+  }
+
+  if (
+    action.id == "org.freedesktop.systemd1.manage-units" &&
+    action.lookup("unit") == "pineda-kiosk.service"
+  ) {
+    return polkit.Result.YES;
+  }
+});

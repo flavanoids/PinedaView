@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / web
+node_modules/
+dist/
+core/src/pinedaview/webroot/
+.svelte-kit/
+*.tsbuildinfo
+.vite/
+
+# Local data / runtime (runtime state dir lives at the repo root or /var/lib)
+*.log
+*.db
+*.sqlite
+/data/
+/core/data/
+/photos/
+config.local.*
+config.toml
+.env
+.env.*
+!.env.example
+
+# Editor / OS / Sync
+.DS_Store
+.idea/
+.vscode/
+*.bak
+.stfolder/
+.stignore
+
+# Generated
+packages/protocol/generated/
+web/src/lib/protocol/*.gen.ts
+
+# Githooks private patterns (keep your private patterns file untracked)
+.githooks/private-patterns

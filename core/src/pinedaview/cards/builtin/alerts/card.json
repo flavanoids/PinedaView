@@ -1,0 +1,13 @@
+{
+  "id": "alerts",
+  "name": "Weather alerts",
+  "description": "Active US National Weather Service alerts for the location.",
+  "author": "pinedaview",
+  "needs": ["location", "network"],
+  "provides": ["alerts"],
+  "provider": "alerts",
+  "refresh": { "interval": "10m" },
+  "permissions": { "fetchHosts": ["api.weather.gov"] },
+  "slots": { "min": "strip", "ideal": "strip", "max": "strip" },
+  "entry": "alerts"
+}

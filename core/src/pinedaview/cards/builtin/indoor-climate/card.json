@@ -1,0 +1,13 @@
+{
+  "id": "indoor-climate",
+  "name": "Indoor climate",
+  "description": "Indoor temperature and humidity from the home AC telemetry server.",
+  "author": "pinedaview",
+  "needs": ["network"],
+  "provides": ["indoorClimate"],
+  "provider": "indoorClimate",
+  "refresh": { "interval": "90s", "jitter": "10s" },
+  "slots": { "min": "small", "ideal": "small", "max": "medium" },
+  "permissions": { "fetchHosts": ["127.0.0.1", "localhost", "192.0.2.171"] },
+  "entry": "indoor-climate"
+}

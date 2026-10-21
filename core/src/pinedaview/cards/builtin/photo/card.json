@@ -1,0 +1,16 @@
+{
+  "id": "photo",
+  "name": "Photo frame",
+  "description": "Cycles through uploaded photos.",
+  "author": "pinedaview",
+  "needs": [
+    "photos"
+  ],
+  "slots": {
+    "min": "medium",
+    "ideal": "hero",
+    "max": "hero"
+  },
+  "entry": "photo",
+  "detail": true
+}

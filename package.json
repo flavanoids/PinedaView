@@ -1,0 +1,21 @@
+{
+  "name": "pinedaview-workspace",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": { "node": ">=20" },
+  "pnpm": {
+    "overrides": {
+      "js-yaml@>=4.0.0 <4.3.2": "^4.3.2",
+      "tinypool@<2.1.2": "^2.1.2",
+      "source-map-js@>=1.0.0 <1.2.2": "^1.2.2"
+    }
+  },
+  "scripts": {
+    "dev": "echo \"(placeholder) app dev server is wired up in Phase 03\"",
+    "lint": "pnpm -r --if-present run lint && pnpm run check:spdx",
+    "check": "pnpm run check:spdx && pnpm run check:openapi && pnpm -r --if-present run check && pnpm run check:core",
+    "check:core": "cd core && uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest -q",
+    "check:openapi": "uv run --project core python scripts/export-openapi.py --check",
+    "check:spdx": "node scripts/check-spdx.mjs"
+  }
+}

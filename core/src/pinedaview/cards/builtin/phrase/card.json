@@ -1,0 +1,10 @@
+{
+  "id": "phrase",
+  "name": "Multilingual phrase",
+  "description": "A word of the day in Spanish, Arabic, Vietnamese, Mandarin.",
+  "author": "pinedaview",
+  "needs": ["provider:dailyContent"],
+  "slots": { "min": "small", "ideal": "medium", "max": "medium" },
+  "tier": { "min": "lite", "features": { "rotate": "standard" } },
+  "entry": "phrase"
+}

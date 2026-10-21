@@ -1,0 +1,19 @@
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "description": "Upcoming events from your connected Google and/or Apple calendars.",
+  "author": "pinedaview",
+  "needs": ["network"],
+  "provides": ["calendar"],
+  "provider": "calendar",
+  "refresh": { "interval": "15m" },
+  "permissions": { "fetchHosts": ["www.googleapis.com"] },
+  "slots": { "min": "strip", "ideal": "medium", "max": "hero" },
+  "settings": {
+    "sources": { "type": "list", "title": "Calendars", "default": [] },
+    "view": { "type": "enum", "title": "Show", "description": "How far ahead the calendar looks.", "enum": ["next12h", "today", "week"], "labels": { "next12h": "Next 12 hours", "today": "Today", "week": "Next 7 days" }, "default": "week" },
+    "showDeclined": { "type": "boolean", "title": "Show declined events", "default": false },
+    "maxEvents": { "type": "integer", "title": "Events shown", "description": "The most events listed at once in the 12-hour and today views.", "default": 6, "min": 1, "max": 30 }
+  },
+  "entry": "calendar"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "video",
+  "name": "Live video",
+  "description": "Cycles in a YouTube live stream at hero size, then reverts to the usual cards.",
+  "author": "pinedaview",
+  "slots": { "min": "hero", "ideal": "hero", "max": "hero" },
+  "settings": {
+    "youtubeUrl": {
+      "type": "string",
+      "title": "YouTube link",
+      "description": "A video or live-stream address.",
+      "default": ""
+    },
+    "onSeconds": {
+      "type": "integer",
+      "title": "Seconds on screen",
+      "default": 30,
+      "min": 5,
+      "max": 600
+    },
+    "offSeconds": {
+      "type": "integer",
+      "title": "Seconds between showings",
+      "description": "The other cards show in between.",
+      "default": 180,
+      "min": 5,
+      "max": 3600
+    },
+    "allowOnPi": {
+      "type": "boolean",
+      "title": "Play on Raspberry Pi screens",
+      "description": "Off by default: video is heavy work for a Pi.",
+      "default": false
+    }
+  },
+  "entry": "video"
+}

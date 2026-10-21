@@ -1,0 +1,392 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Structural design tokens. Colours are set per-theme at runtime by
+   applyTheme() from the server's /api/themes palette — this file only holds the
+   shape of the system: spacing, radii, type scale, motion. */
+
+:root {
+  /* Interface-size multiplier. Set per-device on <html> by
+     lib/display.svelte.ts from the detected CSS resolution + device-pixel-ratio
+     and the Settings → Display → Interface size choice; the Accessibility
+     "Larger text" toggle folds into it too. Everything structural below is a
+     multiple of it, so one number scales spacing, radii, type floors, the QR
+     and the tap targets together. */
+  --ui-scale: 1;
+
+  /* spacing scale — 6 / 10 / 16 / 24 / 40 px at 1x, times --ui-scale */
+  --space-0: 0;
+  --space-1: calc(0.375rem * var(--ui-scale));
+  --space-2: calc(0.625rem * var(--ui-scale));
+  --space-3: calc(1rem * var(--ui-scale));
+  --space-4: calc(1.5rem * var(--ui-scale));
+  --space-5: calc(2.5rem * var(--ui-scale));
+  /* A label and the value it belongs to are one unit — tighter than the
+     --space-2 that separates unrelated blocks inside a card. */
+  --space-label: calc(0.25rem * var(--ui-scale));
+
+  --radius-card: calc(1.25rem * var(--ui-scale));
+  --radius-pill: 999px;
+
+  /* QR codes + tap targets — one definition shared by the Photo card and the
+     setup wizard so they agree, and so both track the display size. The floor
+     keeps a wall-mounted display's code scannable from a step back. */
+  --qr-size: clamp(120px, calc(34vw * var(--ui-scale)), 220px);
+  --qr-badge: clamp(56px, calc(15vw * var(--ui-scale)), 104px);
+  --icon-tap: calc(2.75rem * var(--ui-scale));
+
+  /* type — fluid, clamped. The vw track is the fallback; the @supports block
+     below upgrades it to container units where they're available.
+     --ui-scale multiplies the whole clamp (floor, preferred *and* ceiling), so
+     a big low-density panel grows body/caption text too — not just the fluid
+     mid-range that a fixed ceiling used to cap on a wall-mounted display. */
+  --font-display: "Roboto", "Aileron", "Helvetica Neue", system-ui, sans-serif;
+  --font-body: "Roboto", "Aileron", "Helvetica Neue", system-ui, sans-serif;
+  /* The clock card only. Kept off --font-display so the rest of the UI stays
+     in Aileron and the time is the one place the serif speaks. */
+  --font-clock: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+  /* Weight scale — ported from PinedaDisplay's font helpers (get_font /
+     get_font_semibold / get_font_bold). The Pi dashboard renders a kiosk
+     read-from-across-the-room display: hero numbers in bold, labels and
+     headings in semibold, body copy in regular. Nothing thinner — a
+     wall-mounted panel can't afford hairline strokes. */
+  --weight-body: 400;
+  --weight-label: 600;
+  --weight-display: 700;
+  /* The hero number is also bounded by viewport height — on a short landscape
+     screen (a 7" tablet) 20cqi of a full-width hero would eat the whole
+     screen. `min(…, 24vh)` keeps it proportional there; the wall panel is tall
+     enough that the width term still wins. */
+  --type-hero: calc(clamp(2.25rem, min(11vw, 24vh), 13rem) * var(--ui-scale));
+  --type-xl: calc(clamp(1.6rem, 13vw, 7rem) * var(--ui-scale));
+  --type-lg: calc(clamp(1.15rem, 8vw, 4rem) * var(--ui-scale));
+  --type-md: calc(clamp(0.95rem, 4.6vw, 1.75rem) * var(--ui-scale));
+  --type-sm: calc(clamp(0.8125rem, 3.2vw, 1.3rem) * var(--ui-scale));
+  --type-caption: calc(clamp(0.6875rem, 2.5vw, 1.1rem) * var(--ui-scale));
+
+  /* filled in by applyTheme() — declared here so the cascade always resolves */
+  --stage: #000000;
+  --on-stage: #f4efe5;
+  --accent: #e7a34a;
+  --on-card: #f4efe5;
+  /* Card-intrinsic identity colors, ported from PinedaDisplay's
+     C_ACCENT_TEAL/GOLD/RED — a phrase card's language label, an
+     affirmation's quote, a severity tier. Fixed across themes, unlike
+     --accent above: --accent means "touch this"; these mean "this is
+     what kind of card you're looking at," the same way a card's own
+     background color doesn't change with the theme's accent either. */
+  --accent-teal: #8bb07c;
+  --accent-gold: #ffd60a;
+  --accent-red: #e84393;
+  /* Muted text tiers, derived so [data-high-contrast] can strengthen them. */
+  --on-stage-soft: color-mix(in srgb, var(--on-stage) 62%, transparent);
+  --on-card-soft: color-mix(in srgb, var(--on-card) 68%, transparent);
+  --on-card-faint: color-mix(in srgb, var(--on-card) 45%, transparent);
+  --card-weather: #3a3732;
+  --card-clock: #282622;
+  --card-affirmation: #645e54;
+  --card-phrase: #544e44;
+  --card-forecast: #282622;
+  --card-nowPlaying: #312f2b;
+  --card-countdown: #282622;
+  --card-moon: #2d3455;
+  --card-radar: #2a2622;
+  --card-generic: #3a3732;
+
+  /* motion — Lite zeroes these out */
+  --dur-fast: 180ms;
+  --dur-normal: 320ms;
+  --dur-mid: 450ms;
+  --dur-slow: 700ms;
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --ease-spring-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-gentle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --card-blur: 0px;
+
+  /* Liquid Glass surface — only in effect under [data-surface="glass"] */
+  --glass-blur: 20px;
+  --glass-fill: 0.44; /* card-tint opacity over the wallpaper */
+  --glass-stroke: rgba(255, 255, 255, 0.55);
+  --glass-sheen: rgba(255, 255, 255, 0.18);
+  --glass-lift: 0 22px 48px -16px rgba(28, 38, 66, 0.5);
+}
+
+/* Where container queries are supported, size card text to the card's own
+   width rather than the viewport: the same card reads sensibly whether it's
+   one of four in a wide grid or full-width on a phone, with no per-tier font
+   rules. Chrome outside the grid resolves against #app (the viewport-width
+   container declared in base.css). Older tablet browsers keep the vw track. */
+@supports (container-type: inline-size) {
+  :root {
+    --type-hero: calc(clamp(2.25rem, min(20cqi, 24vh), 13rem) * var(--ui-scale));
+    --type-xl: calc(clamp(1.4rem, 20cqi, 7rem) * var(--ui-scale));
+    --type-lg: calc(clamp(1.05rem, 12cqi, 4rem) * var(--ui-scale));
+    --type-md: calc(clamp(0.9rem, 6cqi, 1.75rem) * var(--ui-scale));
+    --type-sm: calc(clamp(0.8rem, 4.2cqi, 1.3rem) * var(--ui-scale));
+    --type-caption: calc(clamp(0.68rem, 3cqi, 1.1rem) * var(--ui-scale));
+  }
+}
+
+:root[data-motion="rich"] {
+  --card-blur: 14px;
+}
+
+:root[data-motion="lite"],
+:root[data-reduce-motion="true"] {
+  --dur-fast: 0.01ms;
+  --dur-normal: 0.01ms;
+  --dur-mid: 0.01ms;
+  --dur-slow: 0.01ms;
+  --ease-spring: linear;
+  --ease-spring-snappy: linear;
+  --ease-spring-gentle: linear;
+  --ease-exit: linear;
+  --card-blur: 0px;
+  /* Backdrop blur is the costly part of glass — drop it on weak devices and
+     make the card fill near-opaque so text stays legible without it. */
+  --glass-blur: 0px;
+  --glass-fill: 0.92;
+  --glass-lift: 0 10px 24px -12px rgba(28, 38, 66, 0.4);
+}
+
+/* Idle: the screen has been untouched (or hidden) — freeze the ambient loops
+   (elements opted in with data-ambient: eq bars, alert flashes) so a weak
+   device can clock down. One-shot change feedback (digit swap-ins, value
+   settles) keeps playing: pausing those mid-flight used to hold `both`-filled
+   keyframes at their invisible first frame. A new looping animation must opt
+   in with data-ambient or idle won't pause it. animation-play-state isn't
+   inherited, hence the descendant and pseudo variants. */
+:root[data-idle="true"] [data-ambient],
+:root[data-idle="true"] [data-ambient] *,
+:root[data-idle="true"] [data-ambient]::before,
+:root[data-idle="true"] [data-ambient]::after,
+:root[data-idle="true"] [data-ambient] *::before,
+:root[data-idle="true"] [data-ambient] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ── Accessibility preferences (Settings → Accessibility) ──────────────────
+   Each toggle sets a data-* attribute; the matching OS media query below is a
+   floor that applies even with the toggle off. */
+
+:root[data-reduce-transparency] {
+  --card-blur: 0px;
+  --glass-blur: 0px;
+  --glass-fill: 0.97;
+  --glass-sheen: transparent;
+  --glass-scrim: rgba(10, 12, 22, 0.86);
+}
+:root[data-reduce-transparency] .daytint {
+  display: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --card-blur: 0px;
+    --glass-blur: 0px;
+    --glass-fill: 0.97;
+    --glass-sheen: transparent;
+    --glass-scrim: rgba(10, 12, 22, 0.86);
+  }
+  .daytint {
+    display: none;
+  }
+}
+
+/* "Larger text" (Settings → Accessibility) folds into --ui-scale in
+   lib/display.svelte.ts, so spacing, cards, the QR and the tap targets grow
+   with the type instead of the text overflowing fixed boxes. */
+
+:root[data-high-contrast] {
+  --on-stage-soft: color-mix(in srgb, var(--on-stage) 90%, transparent);
+  --on-card-soft: color-mix(in srgb, var(--on-card) 92%, transparent);
+  --on-card-faint: color-mix(in srgb, var(--on-card) 74%, transparent);
+  --glass-stroke: rgba(255, 255, 255, 0.9);
+}
+:root[data-high-contrast] .card {
+  outline: 1px solid color-mix(in srgb, var(--on-card) 45%, transparent);
+  outline-offset: -1px;
+}
+@media (prefers-contrast: more) {
+  :root {
+    --on-stage-soft: color-mix(in srgb, var(--on-stage) 90%, transparent);
+    --on-card-soft: color-mix(in srgb, var(--on-card) 92%, transparent);
+    --on-card-faint: color-mix(in srgb, var(--on-card) 74%, transparent);
+    --glass-stroke: rgba(255, 255, 255, 0.9);
+  }
+  .card {
+    outline: 1px solid color-mix(in srgb, var(--on-card) 45%, transparent);
+    outline-offset: -1px;
+  }
+}
+
+/* Material layout: very rounded, generous, subtle elevation */
+:root[data-layout="material"] {
+  --radius-card: 1.75rem;
+}
+:root[data-layout="material"] .card {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 4px 12px -4px rgba(0, 0, 0, 0.14);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Liquid Glass — frosted panes over a dawn wallpaper. Ported from the Pi's
+   _draw_liquid_glass_chrome: a top sheen and a specular rim that catches
+   light from above, on a translucent fill. The wallpaper is the "something
+   behind the glass" that makes the refraction read.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root[data-surface="glass"] {
+  --radius-card: 1.75rem;
+  --font-display: "Aileron", -apple-system, "SF Pro Display", system-ui, sans-serif;
+  --font-body: "Aileron", -apple-system, "SF Pro Text", system-ui, sans-serif;
+}
+
+/* ─── Groovy: a 70s-adjacent palette (see themes.py), a modern grotesque
+   typeface for everything but the clock — swapped in wherever Roboto/
+   Aileron would otherwise show, same mechanism as the glass override
+   above. --font-clock deliberately isn't listed here: the clock keeps
+   Fraunces (the root default) in every theme, groovy included. Halloween is
+   groovy re-dyed, so it shares the typeface. ─── */
+:root[data-theme="groovy"],
+:root[data-theme="groovy_night"],
+:root[data-theme="halloween"],
+:root[data-theme="halloween_night"] {
+  --font-display: "Bricolage Grotesque", "Aileron", "Helvetica Neue", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque", "Aileron", "Helvetica Neue", system-ui, sans-serif;
+}
+
+:root[data-surface="glass"] body {
+  /* Layers, front to back: a scrim (only when a wallpaper is set, so the
+     cards read over a busy photo), the uploaded wallpaper if any, then the
+     built-in dawn gradient as the always-present fallback. */
+  background:
+    linear-gradient(
+      var(--glass-scrim, transparent),
+      var(--glass-scrim, transparent)
+    ),
+    var(--glass-wallpaper, none) center / cover no-repeat,
+    radial-gradient(
+      58% 52% at 16% 10%,
+      rgba(150, 196, 232, 0.6),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 58% at 88% 94%,
+      rgba(244, 205, 176, 0.55),
+      transparent 72%
+    ),
+    linear-gradient(158deg, #93b0dd 0%, #b0a8d3 46%, #e6c3bc 100%);
+  background-attachment: fixed;
+}
+/* Liquid Glass (Night): the same layers over a dusk-to-midnight sky — a cool
+   moonlit glow top-left, the last of the sunset low on the right. */
+:root[data-theme="liquid_glass_night"] body {
+  background:
+    linear-gradient(
+      var(--glass-scrim, transparent),
+      var(--glass-scrim, transparent)
+    ),
+    var(--glass-wallpaper, none) center / cover no-repeat,
+    radial-gradient(
+      58% 52% at 16% 10%,
+      rgba(96, 124, 204, 0.45),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 58% at 88% 94%,
+      rgba(150, 84, 120, 0.4),
+      transparent 72%
+    ),
+    linear-gradient(158deg, #0f1633 0%, #1d1f45 46%, #3a2640 100%);
+  background-attachment: fixed;
+}
+
+:root[data-surface="glass"] .card {
+  background: color-mix(
+    in srgb,
+    var(--card-bg) calc(var(--glass-fill) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    var(--glass-lift);
+}
+
+/* keep real content above the sheen / rim pseudo-elements */
+:root[data-surface="glass"] .card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* top-down sheen over the upper 42% of the card */
+:root[data-surface="glass"] .card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 42%);
+}
+
+/* 1px specular rim: bright at the top, fading toward the bottom */
+:root[data-surface="glass"] .card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    180deg,
+    var(--glass-stroke),
+    rgba(255, 255, 255, 0.08) 65%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-surface="glass"] body {
+    background-attachment: scroll;
+  }
+}
+
+/* ── Raspberry Pi (lib/platform.svelte.ts) ──────────────────────────────────
+   Cuts beyond what the Lite motion tier already makes: this fires whenever
+   the client IS a Pi, independent of whatever motion tier is in force (a
+   user can still pin Standard/Rich in Settings, but the compositor-heavy
+   glass paint stays off — the Pi's GPU can't afford it either way). */
+:root[data-platform="pi"][data-surface="glass"] .card {
+  /* backdrop-filter forces its own compositor layer even at blur(0) —
+     drop the property entirely rather than zero its argument. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+:root[data-platform="pi"][data-surface="glass"] .card::before,
+:root[data-platform="pi"][data-surface="glass"] .card::after {
+  content: none;
+}
+:root[data-platform="pi"][data-surface="glass"] body {
+  background-attachment: scroll;
+}
+
+/* A Pi display is a kiosk / wall dashboard — mouse, pointer, or touch input
+   must never leave a visible cursor arrow or hand on screen. Suppress the
+   cursor unconditionally across all elements when running on the Pi (unless
+   previewing another device from desktop). */
+:root[data-platform="pi"]:not([data-preview]),
+:root[data-platform="pi"]:not([data-preview]) *,
+:root[data-platform="pi"]:not([data-preview]) *::before,
+:root[data-platform="pi"]:not([data-preview]) *::after {
+  cursor: none !important;
+}

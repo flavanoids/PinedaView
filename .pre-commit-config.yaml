@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# Fast subset only — lint, format, types, hygiene. CI runs the full gate.
+# Install:  pipx run pre-commit install   (or: uv tool run pre-commit install)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^core/
+      - id: ruff-format
+        files: ^core/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (core, strict)
+        entry: bash -c 'cd core && uv run mypy .'
+        language: system
+        pass_filenames: false
+        files: ^core/.*\.py$
+
+      - id: eslint
+        name: eslint (web)
+        entry: bash -c 'cd web && pnpm exec eslint .'
+        language: system
+        pass_filenames: false
+        files: ^web/.*\.(ts|js|svelte)$
+
+      - id: spdx
+        name: SPDX header check
+        entry: node scripts/check-spdx.mjs
+        language: system
+        pass_filenames: false

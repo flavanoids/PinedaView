@@ -1,0 +1,6 @@
+{
+  "features": [
+    { "properties": { "severity": "Severe", "event": "Heat Advisory", "headline": "Heat Advisory until 8 PM CDT" } },
+    { "properties": { "severity": "Minor", "event": "Air Quality Alert" } }
+  ]
+}
