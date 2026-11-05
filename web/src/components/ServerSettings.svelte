@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-  import type { Backup } from "@pinedaview/protocol";
+  import type { Backup, UpdateStatus } from "@pinedaview/protocol";
 
   import { useSettings } from "../lib/settings.svelte";
   import Field from "./settings/Field.svelte";
@@ -19,6 +19,45 @@
   let restoring = $state<Backup | null>(null);
   let restoreName = $state("");
   let busy = $state(false);
+
+  let updateInfo = $state<UpdateStatus | null>(null);
+  let checking = $state(false);
+  let updating = $state(false);
+
+  async function loadUpdateInfo(): Promise<void> {
+    try {
+      updateInfo = await client.getUpdateStatus();
+    } catch {
+      // ignore
+    }
+  }
+  $effect(() => {
+    void loadUpdateInfo();
+  });
+
+  async function checkUpdates(): Promise<void> {
+    checking = true;
+    try {
+      updateInfo = await client.checkForUpdates();
+      settings.flash(updateInfo.message || "Update check complete");
+    } catch {
+      settings.flash("Could not check for updates", true);
+    } finally {
+      checking = false;
+    }
+  }
+
+  async function installUpdate(): Promise<void> {
+    updating = true;
+    try {
+      updateInfo = await client.triggerUpdate();
+      settings.flash("Update started. Display will restart once finished.");
+    } catch {
+      settings.flash("Could not start update", true);
+    } finally {
+      updating = false;
+    }
+  }
 
   async function refreshKeys(): Promise<void> {
     secretNames = (await client.listSecrets()).names;
@@ -137,6 +176,36 @@
       >
     </div>
   {/each}
+</Group>
+
+<Group
+  title="Software update"
+  description="PinedaDisplay updates automatically from GitHub. You can also check or install updates now."
+>
+  <div class="row">
+    <button
+      type="button"
+      class="btn"
+      disabled={checking || updating}
+      onclick={checkUpdates}
+      >{checking ? "Checking…" : "Check for updates"}</button
+    >
+    <button
+      type="button"
+      class="btn primary"
+      disabled={updating || checking}
+      onclick={installUpdate}
+      >{updating ? "Updating…" : "Install update"}</button
+    >
+  </div>
+  {#if updateInfo}
+    <p class="hint">
+      Current version: <strong>{updateInfo.current_version}</strong>
+      {#if updateInfo.current_commit}({updateInfo.current_commit}){/if}
+      {#if updateInfo.message}
+        · {updateInfo.message}{/if}
+    </p>
+  {/if}
 </Group>
 
 <Group title="Server">

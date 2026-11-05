@@ -159,7 +159,7 @@
     --edge: min(5vh, 40px);
     position: fixed;
     right: calc(var(--edge) + var(--frame-x, 0px));
-    bottom: var(--edge);
+    bottom: calc(var(--edge) + var(--frame-y, 0px));
     z-index: 12;
     width: clamp(15rem, 27vmin, 30rem);
     overflow: hidden;

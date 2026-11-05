@@ -15,7 +15,7 @@
 -->
 <script lang="ts">
   import Card from "../components/Card.svelte";
-  import { alarmTime, timeOfDay } from "../lib/format";
+  import { alarmTime, formatCountdown, timeOfDay } from "../lib/format";
   import { remaining } from "../lib/time.svelte";
   import type { CardProps, HomeCamsData, TimerEntry } from "./types";
   import { pick } from "./types";
@@ -55,13 +55,6 @@
       .sort((a, b) => a.left.totalSeconds - b.left.totalSeconds),
   );
   const soonest = $derived(running[0]);
-
-  function countdown(total: number): string {
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = String(total % 60).padStart(2, "0");
-    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
-  }
 
   // "1:51 PM", as on the traffic and radar cards.
   function clock(iso: string): string {
@@ -104,7 +97,8 @@
     {#if soonest}
       <span class="chip timer" role="timer"
         >{soonest.label}{running.length > 1 ? ` +${running.length - 1}` : ""}
-        <b>{soonest.alarm ?? countdown(soonest.left.totalSeconds)}</b></span
+        <b>{soonest.alarm ?? formatCountdown(soonest.left.totalSeconds)}</b
+        ></span
       >
     {/if}
   </div>

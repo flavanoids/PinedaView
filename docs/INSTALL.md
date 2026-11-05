@@ -137,10 +137,16 @@ server to answer before launching. Install manually per device — hardware, GPU
 driver, and the local user vary too much to package generically:
 
 ```bash
-sudo install -m 644 packaging/pineda-kiosk.service /etc/systemd/system/
+sudo install -m 755 packaging/pinedaview-kiosk-launch.sh /usr/local/bin/pinedaview-kiosk-launch
+sudo install -m 644 packaging/pinedaview-kiosk.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now pineda-kiosk.service
+sudo systemctl enable --now pinedaview-kiosk.service
 ```
+
+`pinedaview-kiosk-launch` runs inside cage ahead of Chromium and turns the screen
+to its saved direction, so a panel mounted on its side comes up the right way
+after every restart (turning it: docs/OPERATIONS.md#turning-the-kiosks-screen;
+it needs `wlr-randr`).
 
 Adjust `User`/`Group` and `XDG_RUNTIME_DIR`'s uid in the unit to match the
 target account first. On a large panel (a 2560px kiosk display, not a small
@@ -246,6 +252,19 @@ including ones privately shared with you — to pick from. No bounce page, no
 Google Cloud project, no config file.
 
 ## Upgrading
+
+### Automated Updates
+- **Automated Runner (git / systemd):**
+  Install the update runner and systemd timer to automatically check for updates from GitHub:
+  ```bash
+  sudo install -m 755 scripts/pinedaview-update.sh /usr/local/bin/pinedaview-update
+  sudo install -m 644 packaging/pinedaview-update.service /etc/systemd/system/
+  sudo install -m 644 packaging/pinedaview-update.timer /etc/systemd/system/
+  sudo install -m 440 packaging/pinedaview-update.sudoers /etc/sudoers.d/pinedaview-update
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now pinedaview-update.timer
+  ```
+  Run `scripts/test-update-pipeline.sh` anytime to verify connectivity and pipeline health.
 
 - **Docker:** `docker compose pull && docker compose up -d`
 - **.deb/.rpm:** install the new package; `config.toml` is kept (`noreplace`)

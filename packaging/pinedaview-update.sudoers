@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Allows pinedaview (running as user 'pineda') to invoke the update runner without a password.
+# Install:
+#   sudo install -m 440 packaging/pinedaview-update.sudoers /etc/sudoers.d/pinedaview-update
+pineda ALL=(ALL) NOPASSWD: /usr/local/bin/pinedaview-update, /usr/local/bin/pinedaview-update --check-only

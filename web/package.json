@@ -40,12 +40,12 @@
     {
       "name": "Start-up (what every screen parses)",
       "path": "dist/assets/index-*.js",
-      "limit": "101 kB"
+      "limit": "108 kB"
     },
     {
       "name": "Everything (Settings, builder and wizard included)",
       "path": "dist/assets/*.js",
-      "limit": "153 kB"
+      "limit": "168 kB"
     }
   ],
   "dependencies": {

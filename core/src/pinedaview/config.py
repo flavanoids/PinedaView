@@ -134,12 +134,12 @@ class ControlConfig(BaseModel):
     host: str | None = None
     """SSH target for the kiosk device, e.g. "airplaypi". ``None`` means
     "this machine" — the buttons run systemctl locally, as before."""
-    user: str = \"pineda\"
+    user: str = "pineda"
     ssh_key: Path | None = None
     """Private key for ``user@host``. Must be authorized on the kiosk device
     for exactly ``systemctl restart pineda-kiosk.service`` and ``systemctl
     reboot`` — see docs/OPERATIONS.md#split-host-control."""
-    kiosk_service: str = "pineda-kiosk.service"
+    kiosk_service: str = "pinedaview-kiosk.service"
     pin: str | None = None
     """Digits the phone menu asks for before restarting the display or the
     device — keeps a guest who scanned the QR from rebooting it unannounced.
@@ -222,6 +222,15 @@ class McpConfig(BaseModel):
     clients: dict[str, McpClientConfig] = Field(default_factory=dict)
 
 
+class UpdateConfig(BaseModel):
+    """Automatic updates configuration for PinedaView."""
+
+    enabled: bool = True
+    target_branch: str = "main"
+    deploy_key: Path | None = None
+    runner_cmd: str = "/usr/local/bin/pinedaview-update"
+
+
 class Settings(BaseSettings):
     """Root configuration object."""
 
@@ -238,6 +247,7 @@ class Settings(BaseSettings):
     api: ApiConfig = ApiConfig()
     mqtt: MqttConfig = MqttConfig()
     control: ControlConfig = ControlConfig()
+    update: UpdateConfig = UpdateConfig()
     calendar: CalendarConfig = CalendarConfig()
     countdown: CountdownConfig = CountdownConfig()
     cameras: CamerasConfig = CamerasConfig()

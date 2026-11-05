@@ -3,7 +3,8 @@
 set -e
 
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl stop pineda-web.service || true
-    systemctl disable pineda-web.service || true
-    systemctl disable --now pineda-web-guard.service || true
+    systemctl stop pinedaview.service pineda-web.service 2>/dev/null || true
+    systemctl disable pinedaview.service pineda-web.service 2>/dev/null || true
+    systemctl disable --now pinedaview-guard.service pineda-web-guard.service 2>/dev/null || true
+    systemctl disable --now pinedaview-update.timer 2>/dev/null || true
 fi

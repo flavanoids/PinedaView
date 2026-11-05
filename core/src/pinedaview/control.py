@@ -104,7 +104,7 @@ def snapshot(control: ControlConfig) -> bytes:
     """
     if not control.host:
         raise ControlError("snapshots need [control].host")
-    cmd = _remote_wrap(control, ["pineda-snapshot"])
+    cmd = _remote_wrap(control, ["pinedaview-snapshot"])
     try:
         raw = subprocess.run(cmd, check=True, capture_output=True, timeout=_TIMEOUT_S).stdout
         frame = Image.open(io.BytesIO(raw))
@@ -117,7 +117,58 @@ def snapshot(control: ControlConfig) -> bytes:
     return out.getvalue()
 
 
-DIAGNOSTICS_DIR = Path("/var/lib/pineda-web/diagnostics")
+# Which way the kiosk's screen is turned, as wlr-randr names it: "normal",
+# or the picture turned 90, 180 or 270 degrees.
+ROTATIONS = ("normal", "90", "180", "270")
+
+
+# "Tall" is the picture turned 90°: how the kitchen screen is mounted on
+# its side (user decision 2026-10-26); 270 is the same, flipped over.
+_FLIPPED = {"normal": "180", "180": "normal", "90": "270", "270": "90"}
+
+
+def turned(now: str, to: str) -> str:
+    """Where `to` ("wide", "tall", "flip" over, or "turn" between wide and
+    tall) takes a screen that's at `now`. Already wide or tall stays put,
+    flipped over or not."""
+    tall = now in ("90", "270")
+    if to == "flip":
+        return _FLIPPED.get(now, "180")
+    if to == "turn":
+        return "normal" if tall else "90"
+    if to == "tall":
+        return now if tall else "90"
+    if to == "wide":
+        return "normal" if tall else now
+    raise ValueError(f"unknown turn: {to}")
+
+
+def rotation(control: ControlConfig) -> str:
+    """The kiosk screen's saved direction (one of ROTATIONS)."""
+    if not control.host:
+        raise ControlError("turning the screen needs [control].host")
+    cmd = _remote_wrap(control, ["pinedaview-rotation"])
+    try:
+        out = subprocess.run(
+            cmd, check=True, capture_output=True, timeout=_TIMEOUT_S, text=True
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("reading the screen's direction failed: %s", exc)
+        raise ControlError(str(exc)) from exc
+    return out if out in ROTATIONS else "normal"
+
+
+def rotate(control: ControlConfig, turn: str) -> None:
+    """Turn the kiosk's screen now and save it there, so it stays turned
+    through restarts (packaging/pinedaview-kiosk-launch.sh puts it back)."""
+    if turn not in ROTATIONS:
+        raise ValueError(f"unknown rotation: {turn}")
+    if not control.host:
+        raise ControlError("turning the screen needs [control].host")
+    _run(control, ["pinedaview-rotate", turn])
+
+
+DIAGNOSTICS_DIR = Path("/var/lib/pinedaview/diagnostics")
 MAX_DIAGNOSTIC_SNAPSHOTS = 10
 
 

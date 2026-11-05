@@ -29,7 +29,7 @@
     trailingSpan,
     type GridItem,
   } from "../lib/grid";
-  import { getLayout, resolveTier } from "../layouts/resolve";
+  import { fillsPanel, getLayout, resolveTier } from "../layouts/resolve";
   import { platform } from "../lib/platform.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import { shuffle } from "../lib/shuffle.svelte";
@@ -48,17 +48,19 @@
   const layout = $derived(getLayout(view.layout));
 
   let width = $state(typeof window === "undefined" ? 1024 : window.innerWidth);
+  let height = $state(typeof window === "undefined" ? 0 : window.innerHeight);
   let stageEl = $state<HTMLElement | undefined>();
   $effect(() => {
     const el = stageEl;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       width = entries[0]?.contentRect.width ?? width;
+      height = entries[0]?.contentRect.height ?? height;
     });
     observer.observe(el);
     return () => observer.disconnect();
   });
-  const tier = $derived(resolveTier(layout, width));
+  const tier = $derived(resolveTier(layout, width, height));
 
   // A hand-placed layout from the layout builder: every card sits in its own
   // box, nothing reflows, and the biggest box hosts the hero.
@@ -248,6 +250,7 @@
   class="stage"
   bind:this={stageEl}
   data-tier={tier.id}
+  class:fills={fillsPanel(tier)}
   class:editing={edit.active}
   class:locked={view.locked}
   class:placed={!!grid}
@@ -391,9 +394,11 @@
        as a standalone home-screen app (viewport-fit=cover puts us edge to edge).
        A picture frame's lip (--frame-x) comes on top at the sides: the cards
        keep their size and reflow into what the frame leaves showing. */
-    padding: max(var(--gap), env(safe-area-inset-top))
+    padding: calc(
+        max(var(--gap), env(safe-area-inset-top)) + var(--frame-y, 0px)
+      )
       calc(max(var(--gap), env(safe-area-inset-right)) + var(--frame-x, 0px))
-      max(var(--gap), env(safe-area-inset-bottom))
+      calc(max(var(--gap), env(safe-area-inset-bottom)) + var(--frame-y, 0px))
       calc(max(var(--gap), env(safe-area-inset-left)) + var(--frame-x, 0px));
     height: 100%;
     align-content: start;
@@ -414,11 +419,11 @@
      its row crops at its own edge. Phones and tablets (compact / mid tiers)
      keep a min-content floor and the base `overflow-y: auto`, so a long stack
      still scrolls even when the screen is locked. */
-  .stage.locked[data-tier="wide"] {
+  .stage.locked.fills {
     grid-auto-rows: 1fr;
     overflow: hidden;
   }
-  .stage.locked:not([data-tier="wide"]) {
+  .stage.locked:not(.fills) {
     grid-auto-rows: minmax(min-content, 1fr);
   }
   /* Hand-placed: a builder unit is half an automatic cell a side, so its row
@@ -427,7 +432,7 @@
   .stage.placed {
     grid-auto-rows: minmax(calc(var(--cell-min) / 2), auto);
   }
-  .stage.placed.locked[data-tier="wide"] {
+  .stage.placed.locked.fills {
     grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   }
   .stage.placed .cell {
@@ -435,8 +440,8 @@
   }
   /* Only the fit-to-viewport case zeroes the cell / media-frame floors — the
      `1fr` row is what sets the height there. Elsewhere the floors stand. */
-  .stage.locked[data-tier="wide"] .cell,
-  .stage.locked[data-tier="wide"] .cell :global(.frame) {
+  .stage.locked.fills .cell,
+  .stage.locked.fills .cell :global(.frame) {
     min-height: 0;
   }
   /* A keyboard-only way into the layout editor (touch uses long-press). Hidden

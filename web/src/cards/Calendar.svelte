@@ -231,6 +231,11 @@
     min-height: 56cqi;
     font-size: var(--type-sm);
   }
+  /* A panel that fills its screen sets the row's height, which on a tall
+     screen is less than this floor: fit the row instead. */
+  :global(.stage.fills) .cal {
+    min-height: 0;
+  }
 
   /* ---- The track: busy time is ink, free time is empty lane ---- */
   .track {

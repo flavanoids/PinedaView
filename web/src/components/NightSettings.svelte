@@ -141,7 +141,10 @@
           />
         {/snippet}
       </Field>
-      <Field label="Until" hint="When the dashboard comes back each morning.">
+      <Field
+        label="School mornings, until"
+        hint="When the dashboard comes back, Monday to Friday."
+      >
         {#snippet children(id)}
           <input
             {id}
@@ -149,6 +152,19 @@
             value={screen.night_end}
             onchange={(e) =>
               settings.saveScreen({ night_end: e.currentTarget.value })}
+          />
+        {/snippet}
+      </Field>
+      <Field label="Weekend mornings, until" hint="Saturday and Sunday.">
+        {#snippet children(id)}
+          <input
+            {id}
+            type="time"
+            value={screen.night_weekend_end ?? screen.night_end}
+            onchange={(e) =>
+              settings.saveScreen({
+                night_weekend_end: e.currentTarget.value,
+              })}
           />
         {/snippet}
       </Field>
@@ -201,7 +217,7 @@
       </Field>
       <Field
         label="Show photos"
-        hint="While it's shown now: your photos fill the screen with the time over them, tucked behind the people in them. The small-hours clock stays dark."
+        hint="While it's shown now: your photos fill the screen with the time over them, tucked behind the people in them. Between the night times above it's the plain clock on black."
       >
         {#snippet children(id)}
           <Switch

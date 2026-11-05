@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Automated update check for PinedaView
+
+[Timer]
+# Check periodically every 5 minutes and nightly at 03:30 AM
+OnBootSec=2min
+OnUnitActiveSec=5min
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

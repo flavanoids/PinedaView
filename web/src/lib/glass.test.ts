@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 
-import { glareOf, gloomOf, LOOKS } from "./glass";
+import { glareOf, gloomOf, LOOKS, tiltAt } from "./glass";
 
 describe("glass contrast response (glare and gloom)", () => {
   it("computes glare for bright backgrounds above mid-luma", () => {
@@ -47,5 +47,31 @@ describe("LOOKS liquid parameters", () => {
   it("has tight specular and chamfered rim exponent for crisp optical look", () => {
     expect(LOOKS.liquid.specPow).toBeGreaterThanOrEqual(64);
     expect(LOOKS.liquid.rimPow).toBeGreaterThanOrEqual(3.5);
+  });
+});
+
+describe("the figures' lens", () => {
+  it("rises from upright at the outline to level at the spine", () => {
+    const r = 10;
+    const half = 30;
+    expect(tiltAt(0, r, half, LOOKS.liquid.dome)).toBeGreaterThan(0.95);
+    expect(tiltAt(half, r, half, LOOKS.liquid.dome)).toBe(0);
+    // Past the rim the dome still slopes: the middle isn't a flat window.
+    expect(tiltAt(r * 1.5, r, half, LOOKS.liquid.dome)).toBeGreaterThan(0);
+  });
+
+  it("keeps crystal's bending in its rim", () => {
+    expect(LOOKS.crystal.dome).toBe(0);
+    expect(tiltAt(15, 10, 30, LOOKS.crystal.dome)).toBe(0);
+  });
+});
+
+describe("frosted glass", () => {
+  it("is sandblasted: matte, with no lens, gloss or caustic", () => {
+    const f = LOOKS.frosted;
+    expect(f.matte).toBe(true);
+    expect([f.dome, f.magnify, f.gloss, f.caustic]).toEqual([0, 0, 0, 0]);
+    expect(LOOKS.liquid.matte).toBe(false);
+    expect(LOOKS.crystal.matte).toBe(false);
   });
 });

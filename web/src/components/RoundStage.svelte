@@ -103,6 +103,7 @@
     place-items: center;
     /* A picture frame's lip narrows the room the disc is sized to. */
     padding-inline: var(--frame-x, 0px);
+    padding-block: var(--frame-y, 0px);
     /* Outside the disc is plain black: nothing to draw there. */
     background: #000;
     overflow: hidden;

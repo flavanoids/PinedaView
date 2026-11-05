@@ -73,5 +73,5 @@ weekdays_only = true
 # instead of acting on this host. Leave unset for a single-device setup.
 # [control]
 # host = "192.0.2.50"
-# user = \"pineda\"
-# ssh_key = "/var/lib/pineda-web/control_ed25519"
+# user = "pineda"
+# ssh_key = "/var/lib/pinedaview/control_ed25519"

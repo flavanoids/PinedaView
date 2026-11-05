@@ -37,6 +37,27 @@ export type CalendarChoice = Schema["CalendarChoice"];
 export type CalendarSource = Schema["CalendarSource"];
 export type CustomColours = Schema["CustomColours"];
 
+export type UpdateState =
+  | "idle"
+  | "checking"
+  | "updating"
+  | "success"
+  | "failed";
+
+export interface UpdateStatus {
+  state: UpdateState;
+  step?: string | null;
+  message?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  current_version: string;
+  current_commit: string;
+  target_version?: string | null;
+  target_commit?: string | null;
+  last_checked_at?: string | null;
+  updated_at?: string | null;
+}
+
 export const PROTOCOL_VERSION = "v0";
 
 export class ProtocolError extends Error {
@@ -55,6 +76,7 @@ export interface StreamHandlers {
   onView(view: ViewModel): void;
   onGone?(): void;
   onIdentify?(): void;
+  onUpdateStatus?(status: UpdateStatus): void;
   onError?(error: Event): void;
 }
 
@@ -214,6 +236,9 @@ export function createClient(baseUrl: string) {
     photoDisplayUrl: (name: string) => `${base}/api/photos/${name}/display`,
     /** Transparent foreground subject cutout (WebP) for depth clock mode. */
     photoSubjectUrl: (name: string) => `${base}/api/photos/${name}/subject`,
+    /** The cutout 96 px wide (PNG, alpha kept): where the subject is, for
+        the Photo Clock to read without decoding the whole cutout. */
+    photoMaskUrl: (name: string) => `${base}/api/photos/${name}/mask`,
     /** The clip (H.264, silent) that plays over a photo made from a Live
         Photo saved as a video; only when `photo.motion`. */
     photoMotionUrl: (name: string) => `${base}/api/photos/${name}/motion`,
@@ -269,7 +294,13 @@ export function createClient(baseUrl: string) {
       seconds: number,
       label: string,
       kind: "timer" | "alarm" = "timer",
-    ) => post<Timer>("/api/timers", { seconds, label, kind }),
+      name: string | null = null,
+    ) => post<Timer>("/api/timers", { seconds, label, kind, name }),
+    updateTakeover: (change: Schema["TakeoverUpdate"]) =>
+      call<Schema["Takeover"] | null>("/api/takeover", {
+        method: "PATCH",
+        body: JSON.stringify(change),
+      }),
     clearTakeover: () => call<void>("/api/takeover", { method: "DELETE" }),
     cancelTimer: (id: string) =>
       call<void>(`/api/timers/${id}`, { method: "DELETE" }),
@@ -294,6 +325,14 @@ export function createClient(baseUrl: string) {
         `/api/now-showing?device_id=${encodeURIComponent(deviceId)}`,
       ),
 
+    getUpdateStatus: () => call<UpdateStatus>("/api/system/update"),
+    checkForUpdates: () => post<UpdateStatus>("/api/system/update/check", {}),
+    triggerUpdate: (pin?: string) =>
+      call<UpdateStatus>("/api/control/update", {
+        method: "POST",
+        headers: pin ? { "x-control-pin": pin } : {},
+      }),
+
     /** Subscribe to the live view model. Returns an unsubscribe function. */
     stream(deviceId: string, handlers: StreamHandlers): () => void {
       const source = new EventSource(`${base}/api/stream/${deviceId}`);
@@ -307,6 +346,15 @@ export function createClient(baseUrl: string) {
         source.close();
       });
       source.addEventListener("identify", () => handlers.onIdentify?.());
+      source.addEventListener("update_status", (event) => {
+        try {
+          handlers.onUpdateStatus?.(
+            JSON.parse((event as MessageEvent<string>).data) as UpdateStatus,
+          );
+        } catch {
+          // ignore parse errors
+        }
+      });
       source.onerror = (event) => handlers.onError?.(event);
       return () => source.close();
     },

@@ -162,7 +162,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: clamp(var(--space-3), 5vw, var(--space-5))
+    padding: calc(
+        clamp(var(--space-3), 5vw, var(--space-5)) + var(--frame-y, 0px)
+      )
       calc(clamp(var(--space-3), 5vw, var(--space-5)) + var(--frame-x, 0px));
     z-index: 20;
   }

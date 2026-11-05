@@ -8,6 +8,7 @@
     miniShowing,
     type MiniTrack,
   } from "./MiniNowPlaying.svelte";
+  import MiniTimer from "./MiniTimer.svelte";
   import type { PhotoClockSettings } from "../lib/clockface.svelte";
   import { formatClock } from "../lib/format";
   import { frameX } from "../lib/frame.svelte";
@@ -26,6 +27,7 @@
     weather = null,
     units = "imperial",
     nowPlaying = null,
+    timers = [],
     paused = false,
   }: {
     onWake: () => void;
@@ -48,6 +50,8 @@
     units?: string | null;
     /** The AirPlay track (nowPlaying store), for the corner music card. */
     nowPlaying?: MiniTrack | null;
+    /** Running timers and alarms, for the corner timer pill. */
+    timers?: import("../cards/types").TimerEntry[];
     /** Hold the Photo Clock's current photo (Alternate's handover). */
     paused?: boolean;
   } = $props();
@@ -56,6 +60,7 @@
   // cleared one play_end leaves behind.
   const musicOn = $derived(miniShowing(nowPlaying));
   let musicCard = $state<HTMLElement | null>(null);
+  let timerCard = $state<HTMLElement | null>(null);
   let lastTrack: MiniTrack | null = null;
   const musicTrack = $derived.by(() => {
     if (musicOn) lastTrack = nowPlaying;
@@ -79,7 +84,8 @@
     void document.fonts.ready.then(() => {
       if (!live) return;
       const w = el.offsetWidth;
-      const shown = window.innerWidth - 2 * frameX(window.innerWidth);
+      const shown =
+        window.innerWidth - 2 * frameX(window.innerWidth, window.innerHeight);
       fit = w ? Math.min(1, (shown * 0.88) / w) : 1;
     });
     return () => {
@@ -133,7 +139,7 @@
         {weather}
         {units}
         avoid={musicOn ? "br" : null}
-        panel={musicCard}
+        panels={[musicCard, timerCard]}
         {paused}
       />
     {/if}
@@ -154,6 +160,7 @@
 {#if musicOn && musicTrack}
   <MiniNowPlaying track={musicTrack} bind:el={musicCard} />
 {/if}
+<MiniTimer {timers} bind:el={timerCard} />
 {#if offering}
   <div
     class="way-out"
@@ -219,6 +226,8 @@
     letter-spacing: -0.01em;
     font-variant-numeric: lining-nums proportional-nums;
     color: #f6cfdc;
+    /* The minute's burn-in creep glides rather than jumps. */
+    transition: translate 1.6s ease-in-out;
   }
   /* Old-style colon sits low; lift it to the figures' middle. */
   .colon {
@@ -235,9 +244,12 @@
     .way-out {
       animation: none;
     }
+    .colon,
+    .time {
+      transition: none;
+    }
     .colon {
       opacity: 1;
-      transition: none;
     }
   }
 </style>

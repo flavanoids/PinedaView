@@ -507,6 +507,7 @@
     align-items: flex-end;
     justify-content: center;
     padding-inline: var(--frame-x, 0px);
+    padding-block: var(--frame-y, 0px);
     z-index: 40;
   }
   .backdrop {
@@ -535,7 +536,7 @@
     position: relative;
     width: min(600px, 100%);
     /* A fixed height, so typing a search doesn't make the sheet jump. */
-    height: 92dvh;
+    height: calc(92dvh - 2 * var(--frame-y, 0px));
     display: flex;
     flex-direction: column;
     gap: var(--space-3);

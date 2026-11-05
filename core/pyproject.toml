@@ -79,6 +79,9 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Test doubles implement real interfaces; unused signature args are expected.
 "tests/**" = ["ARG002"]
+# The phone menu is one HTML/CSS/JS document in a string; its prose, SVG paths
+# and JS literals don't wrap at 100 columns.
+"src/pinedaview/menu_page.py" = ["E501"]
 
 [tool.mypy]
 strict = true

@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from pinedaview import api as api_module
-from pinedaview.control import ControlError, PinGate
+from pinedaview.control import ControlError, PinGate, turned
 
 
 async def test_menu_page_served(client: httpx.AsyncClient) -> None:
@@ -140,11 +140,12 @@ def test_control_run_wraps_to_ssh_when_host_set(monkeypatch: pytest.MonkeyPatch)
         return _Result()
 
     monkeypatch.setattr("pinedaview.control.subprocess.run", _capture)
-    control.restart_display(ControlConfig(host="airplaypi", user=\"pineda\"))
+    control.restart_display(ControlConfig(host="airplaypi", user="pineda"))
 
-    assert seen[0][:1] == ["ssh"]
-    assert \"pineda@airplaypi\" in seen[0]
-    assert seen[0][-1] == "pineda-kiosk.service"
+    # seen[0] archives a diagnostic snapshot first; the restart comes last.
+    assert all(cmd[:1] == ["ssh"] for cmd in seen)
+    assert "pineda@airplaypi" in seen[-1]
+    assert seen[-1][-1] == "pinedaview-kiosk.service"
 
 
 def test_snapshot_shrinks_the_kiosk_frame(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,9 +169,9 @@ def test_snapshot_shrinks_the_kiosk_frame(monkeypatch: pytest.MonkeyPatch) -> No
         return _Result()
 
     monkeypatch.setattr("pinedaview.control.subprocess.run", _grim)
-    jpeg = control.snapshot(ControlConfig(host="airplaypi", user=\"pineda\"))
+    jpeg = control.snapshot(ControlConfig(host="airplaypi", user="pineda"))
 
-    assert seen[0][-1] == "pineda-snapshot"
+    assert seen[0][-1] == "pinedaview-snapshot"
     assert Image.open(io.BytesIO(jpeg)).size == (1024, 640)
     with pytest.raises(ControlError):
         control.snapshot(ControlConfig())
@@ -195,3 +196,46 @@ async def test_snapshot_is_shared_and_fails_soft(
 
 async def test_snapshot_without_a_kiosk_is_503(client: httpx.AsyncClient) -> None:
     assert (await client.get("/api/control/snapshot")).status_code == 503
+
+
+async def test_rotation_turns_the_kiosk(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    turned: list[str] = []
+    monkeypatch.setattr(api_module, "rotation", lambda _control: "90")
+    monkeypatch.setattr(api_module, "rotate", lambda _control, turn: turned.append(turn))
+
+    assert (await client.get("/api/control/rotation")).json() == {"rotation": "90"}
+    resp = await client.put("/api/control/rotation", json={"rotation": "270"})
+    assert resp.status_code == 200
+    assert turned == ["270"]
+    assert (await client.put("/api/control/rotation", json={"rotation": "45"})).status_code == 422
+    assert turned == ["270"]
+
+
+async def test_rotation_without_a_kiosk_host(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(_control: Any, _turn: str = "") -> str:
+        raise ControlError("turning the screen needs [control].host")
+
+    monkeypatch.setattr(api_module, "rotate", fail)
+    resp = await client.put("/api/control/rotation", json={"rotation": "90"})
+    assert resp.status_code == 503
+
+
+@pytest.mark.parametrize(
+    ("now", "to", "then"),
+    [
+        ("normal", "tall", "90"),
+        ("270", "tall", "270"),
+        ("90", "wide", "normal"),
+        ("180", "wide", "180"),
+        ("90", "flip", "270"),
+        ("normal", "flip", "180"),
+        ("180", "turn", "90"),
+        ("270", "turn", "normal"),
+    ],
+)
+def test_turned(now: str, to: str, then: str) -> None:
+    assert turned(now, to) == then

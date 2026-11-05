@@ -54,6 +54,11 @@
        it a floor from the cell's width. */
     min-height: 46cqi;
   }
+  /* A panel that fills its screen sets the row's height, which on a tall
+     screen is less than this floor: fit the row instead. */
+  :global(.stage.fills) .mini {
+    min-height: 0;
+  }
   .figs {
     display: grid;
     justify-items: center;

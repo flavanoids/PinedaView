@@ -55,3 +55,21 @@ export function reportViewport(baseUrl: string, id: string): () => void {
     window.removeEventListener("resize", later);
   };
 }
+
+/** On the kiosk, turning between wide and tall reloads the page behind a
+ *  quick fade, so what's measured once at load (the Photo Clock's crop, the
+ *  time's spot, its glass) starts over in the new shape. */
+export function reloadOnTurn(): () => void {
+  let tall = window.innerHeight > window.innerWidth;
+  const check = (): void => {
+    const now = window.innerHeight > window.innerWidth;
+    if (now === tall) return;
+    tall = now;
+    const reload = (): void => location.reload();
+    document.documentElement
+      .animate({ opacity: [1, 0] }, { duration: 250, fill: "forwards" })
+      .finished.then(reload, reload);
+  };
+  window.addEventListener("resize", check);
+  return () => window.removeEventListener("resize", check);
+}

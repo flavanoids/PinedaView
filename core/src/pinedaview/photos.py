@@ -40,6 +40,9 @@ _THUMB_WIDTH = 480
 # Covers a 2x2 hero cell on a retina tablet; ~4x fewer pixels than a 12 MP
 # camera original.
 _DISPLAY_EDGE = 1920
+#: The width of a cutout's mask: the Photo Clock only reads where the
+#: subject is on a coarse grid, so it needn't decode the whole cutout.
+_MASK_WIDTH = 96
 _MAGIC = (
     b"\xff\xd8\xff",  # jpeg
     b"\x89PNG\r\n\x1a\n",  # png
@@ -95,6 +98,10 @@ class Photo(BaseModel):
     motion: bool = False
     """A short clip (a Live Photo saved as a video) plays over the photo,
     which is its middle frame. Read from disk, never stored."""
+    aspect: float | None = None
+    """Width over height as the photo is seen (upright by its EXIF
+    orientation, before ``rotation``), so a tall screen can lean towards
+    tall photos. None until read."""
 
 
 def _looks_like_image(data: bytes) -> bool:
@@ -282,6 +289,20 @@ def _colours(path: Path) -> tuple[list[str], str | None]:
     return colours, f"#{round(r * 255):02x}{round(g * 255):02x}{round(b * 255):02x}"
 
 
+def _aspect(path: Path) -> float | None:
+    """Width over height as the photo is seen: EXIF orientations 5 to 8 stand
+    it on its side."""
+    try:
+        with Image.open(path) as opened:
+            w, h = opened.size
+            if opened.getexif().get(ExifTags.Base.Orientation.value, 1) in (5, 6, 7, 8):
+                w, h = h, w
+    except (OSError, ValueError) as exc:
+        logger.warning("could not read the size of %s: %s", path.name, exc)
+        return None
+    return round(w / h, 3) if h else None
+
+
 def _colours_or_none(path: Path) -> tuple[list[str], str | None]:
     try:
         return _colours(path)
@@ -401,6 +422,31 @@ class PhotoStore:
     def subject_path(self, name: str) -> Path:
         return self._thumbs / f"subject_{_safe_name(name)}.webp"
 
+    def mask_path(self, name: str) -> Path:
+        return self._thumbs / f"mask_{_safe_name(name)}.png"
+
+    def mask(self, name: str) -> Path | None:
+        """A small copy of the subject cutout (_MASK_WIDTH wide, alpha kept),
+        made the first time it's asked for and again if the cutout is newer.
+        None when there's no cutout."""
+        subject = self.subject_path(name)
+        if not subject.is_file():
+            return None
+        path = self.mask_path(name)
+        if path.is_file() and path.stat().st_mtime >= subject.stat().st_mtime:
+            return path
+        try:
+            with Image.open(subject) as opened:
+                cutout = opened.convert("RGBA")
+            h = max(1, round(_MASK_WIDTH * cutout.height / cutout.width))
+            small = cutout.resize((_MASK_WIDTH, h), Image.Resampling.BOX)
+            self._ensure_dirs()
+            small.save(path, "PNG", optimize=True)
+        except (OSError, ValueError) as exc:
+            logger.warning("could not make the cutout mask of %s: %s", name, exc)
+            return None
+        return path
+
     def motion_path(self, name: str) -> Path:
         """The clip that plays over a photo made from a video. Kept beside
         the originals, not in the cache: it can't be made again."""
@@ -439,6 +485,23 @@ class PhotoStore:
                     meta[name]["colours"], meta[name]["tint"] = colours, tint
             self._write_meta(meta)
             logger.info("read the colours of %d photos", len(found))
+        return len(found)
+
+    def backfill_aspects(self) -> int:
+        """Read the shape of photos added before it was kept. Returns how
+        many were done."""
+        found = {
+            name: _aspect(self._root / name)
+            for name, entry in self._meta().items()
+            if "aspect" not in entry and (self._root / name).is_file()
+        }
+        if found:
+            meta = self._meta()
+            for name, aspect in found.items():
+                if name in meta:
+                    meta[name]["aspect"] = aspect
+            self._write_meta(meta)
+            logger.info("read the shape of %d photos", len(found))
         return len(found)
 
     def backfill_subjects(self) -> int:
@@ -493,6 +556,7 @@ class PhotoStore:
             "taken_at": _extract_taken_at(path) or clip_taken,
         }
         entry["colours"], entry["tint"] = _colours_or_none(path)
+        entry["aspect"] = _aspect(path)
         if pending:
             entry["pending"] = True
         meta[name] = entry
@@ -543,6 +607,7 @@ class PhotoStore:
             self.thumb_path(name),
             self.display_copy_path(name),
             self.subject_path(name),
+            self.mask_path(name),
             self.motion_path(name),
             self._thumbs / f"thumb_{stem}.jpg",
             self._thumbs / f"display_{stem}.jpg",

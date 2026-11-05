@@ -1,7 +1,10 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-  import { fade, scale } from "svelte/transition";
   import { createClient, type components } from "@pinedaview/protocol";
+  import { untrack } from "svelte";
+  import { cubicInOut } from "svelte/easing";
+
+  import { chooseLayout, letterRange } from "../lib/collage";
 
   type Takeover = components["schemas"]["Takeover"];
   type ImageSearch = components["schemas"]["ImageSearchTakeover"];
@@ -14,407 +17,719 @@
 
   const client = createClient(import.meta.env.VITE_API_URL ?? "");
   const card = $derived(takeover.card as ImageSearch);
-  const images = $derived(card.images ?? []);
-  const activeId = $derived(card.highlight?.toUpperCase() ?? null);
 
+  // A picture none of whose sources worked leaves the collage, and the rest
+  // close up around it. `soft` ones are shown whole over a blur of
+  // themselves: too small for their tile, or a shape it would crop hard.
+  let failed = $state<Record<string, boolean>>({});
+  let loaded = $state<Record<string, boolean>>({});
+  let soft = $state<Record<string, boolean>>({});
+
+  const shown = $derived(
+    (card.images ?? []).filter((i) => !failed[i.id]).slice(0, 8),
+  );
+  let boxW = $state(0);
+  let boxH = $state(0);
+  // A comparison ("Fuji vs Honeycrisp") is two labelled sides, side by
+  // side (stacked on a portrait screen), each laid out on its own.
+  const sections = $derived.by(() => {
+    const byId = new Map(shown.map((i) => [i.id, i]));
+    const sides = (card.groups ?? [])
+      .map((g) => ({
+        label: g.label,
+        items: g.ids.flatMap((id) => byId.get(id) ?? []),
+      }))
+      .filter((g) => g.items.length > 0);
+    const parts = sides.length > 1 ? sides : [{ label: "", items: shown }];
+    const box = boxW > 0 && boxH > 0 ? boxW / boxH : 16 / 10;
+    const each =
+      parts.length === 1
+        ? box
+        : boxH > boxW
+          ? (box * parts.length) / 0.9
+          : (box / parts.length) * 0.9;
+    return parts.map((p) => ({
+      ...p,
+      layout: chooseLayout(
+        p.items.map((i) => i.aspect_ratio ?? 1),
+        each,
+      ),
+    }));
+  });
+  // Arrival order, across the sides.
+  const order = $derived(sections.flatMap((sec) => sec.items));
+  const active = $derived(card.highlight?.toUpperCase() ?? null);
+  const hint = $derived(letterRange(shown.map((i) => i.id)));
+  const heading = $derived(
+    card.query.charAt(0).toUpperCase() + card.query.slice(1),
+  );
+
+  // The bar drains over whatever time is left (as on the recipe card).
+  // Opening a picture gives the card fresh time (a new expires_at): the bar
+  // refills and drains that instead.
+  const firstExpiry = untrack(() => takeover.expires_at);
   const totalMs = $derived(
     Date.parse(takeover.expires_at) - Date.parse(takeover.shown_at),
   );
-  let now = $state(Date.now());
-  $effect(() => {
-    const id = setInterval(() => {
-      now = Date.now();
-    }, 250);
-    return () => clearInterval(id);
-  });
   const leftMs = $derived(
-    Math.max(0, Date.parse(takeover.expires_at) - now),
+    Math.max(0, Date.parse(takeover.expires_at) - Date.now()),
   );
-  const progressPercent = $derived(
-    totalMs > 0 ? Math.max(0, Math.min(100, (leftMs / totalMs) * 100)) : 100,
+  const drainFrom = $derived(
+    takeover.expires_at !== firstExpiry || totalMs <= 0 ? 1 : leftMs / totalMs,
   );
+
+  // The server fetches and shrinks each picture (image_proxy): many sites
+  // refuse the kiosk loading them directly. shown_at keys the browser cache
+  // to this card, since letters repeat from one search to the next.
+  function picture(id: string, size: "thumb" | "full"): string {
+    const v = encodeURIComponent(takeover.shown_at);
+    const again = retried[id] ? "&again=1" : "";
+    return `/api/takeover/images/${encodeURIComponent(id)}?size=${size}&v=${v}${again}`;
+  }
+
+  // One more try before a picture leaves: a server restart or a moment on
+  // the standby shouldn't empty the collage for good.
+  let retried = $state<Record<string, boolean>>({});
+  function missing(id: string): void {
+    if (retried[id]) {
+      failed[id] = true;
+      return;
+    }
+    setTimeout(() => (retried[id] = true), 1500);
+  }
+
+  function arrived(event: Event, item: ImageItem): void {
+    const img = event.currentTarget as HTMLImageElement;
+    const tile = img.parentElement?.getBoundingClientRect();
+    if (tile && tile.width > 0 && img.naturalWidth > 0) {
+      const upscale = Math.max(
+        tile.width / img.naturalWidth,
+        tile.height / img.naturalHeight,
+      );
+      const tileAspect = tile.width / tile.height;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      const kept = Math.min(tileAspect, aspect) / Math.max(tileAspect, aspect);
+      soft[item.id] = upscale > 1.8 || kept < 0.55;
+    }
+    if (img.naturalHeight > 0) {
+      natural[item.id] = img.naturalWidth / img.naturalHeight;
+    }
+    loaded[item.id] = true;
+  }
+
+  // The opened picture fills the screen, whole: never cropped or stretched.
+  const zoomed = $derived(
+    shown.find((i) => i.id.toUpperCase() === active) ?? null,
+  );
+  let natural = $state<Record<string, number>>({});
+  const tiles: Record<string, HTMLElement> = {};
+
+  // Opening a picture from the collage zooms it out of its tile, and "go
+  // back" zooms it home; "next" from one open picture to another fades.
+  let stepping = false;
+  let was: string | null = null;
+  $effect.pre(() => {
+    const now = zoomed?.id ?? null;
+    stepping = was !== null && now !== null && was !== now;
+    was = now;
+  });
+
+  function zoom(node: HTMLElement, { id }: { id: string }) {
+    const fade = { duration: 320, css: (t: number) => `opacity: ${t}` };
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return { duration: 0 };
+    }
+    const tile = tiles[id]?.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
+    const photo = node.querySelector<HTMLElement>(".zoom-photo");
+    if (stepping || !tile || !tile.width || !box.width || !photo) return fade;
+    // Where the whole picture sits on the screen, and how much bigger it
+    // must be to cover the tile it came from, centred on the tile.
+    const item = shown.find((i) => i.id === id);
+    const aspect = natural[id] ?? item?.aspect_ratio ?? 1;
+    const w = Math.min(box.width, box.height * aspect);
+    const h = w / aspect;
+    const grow = Math.max(tile.width / w, tile.height / h);
+    const dx = tile.left + tile.width / 2 - (box.left + box.width / 2);
+    const dy = tile.top + tile.height / 2 - (box.top + box.height / 2);
+    const inset = [
+      tile.top - box.top,
+      box.right - tile.right,
+      box.bottom - tile.bottom,
+      tile.left - box.left,
+    ];
+    const radius = parseFloat(getComputedStyle(tiles[id]!).borderRadius) || 0;
+    return {
+      duration: 560,
+      easing: cubicInOut,
+      css: (t: number) => {
+        const u = 1 - t;
+        const clip = inset.map((v) => `${v * u}px`).join(" ");
+        return `clip-path: inset(${clip} round ${radius * u}px);`;
+      },
+      tick: (t: number) => {
+        const u = 1 - t;
+        photo.style.transform = `translate(${dx * u}px, ${dy * u}px) scale(${1 + (grow - 1) * u})`;
+      },
+    };
+  }
+
+  // The collage itself leaves (its time is up, or "stop the display") by
+  // fading back into whatever the screen was showing.
+  function leave(_node: HTMLElement) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return { duration: 0 };
+    }
+    return {
+      duration: 420,
+      easing: cubicInOut,
+      css: (t: number) =>
+        `opacity: ${t}; transform: scale(${0.97 + 0.03 * t});`,
+    };
+  }
+
+  // A tap does what "tell me about B" / "back" does by voice.
+  function focus(id: string | null): void {
+    void client.updateTakeover({ highlight: id }).catch(() => {});
+  }
 
   function dismiss(): void {
     void client.clearTakeover().catch(() => {});
   }
-
-  function getSpanClass(index: number): string {
-    // Interlocking Tetris / Bento tile assignments for up to 6-8 items
-    switch (index) {
-      case 0:
-        return "tile-hero"; // 2x2 block
-      case 1:
-        return "tile-tall"; // 1x2 vertical block
-      case 2:
-        return "tile-wide"; // 2x1 horizontal block
-      case 3:
-        return "tile-sq1";  // 1x1 accent block
-      case 4:
-        return "tile-sq2";  // 1x1 accent block
-      case 5:
-        return "tile-wide2"; // 2x1 horizontal block
-      default:
-        return "tile-standard";
-    }
-  }
 </script>
 
 <div
-  class="collage-takeover"
-  in:scale={{ start: 0.98, duration: 280 }}
-  out:fade={{ duration: 180 }}
+  class="collage"
+  class:spotlit={active !== null}
+  style:--left={`${leftMs}ms`}
+  out:leave|global
 >
-  <!-- Drain progress bar -->
-  <div class="progress-bar-track">
-    <div
-      class="progress-bar-fill"
-      style:width="{progressPercent}%"
-    ></div>
-  </div>
-
-  <!-- Header banner -->
-  <header class="header">
-    <div class="query-pill">
-      <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
-      <span class="query-text">{card.query}</span>
+  <header>
+    <div class="title">
+      <p class="kicker">Pictures</p>
+      <h1>{heading}</h1>
     </div>
-    <div class="hint-pill">
-      <span>Ask about <strong>A</strong>, <strong>B</strong>, or say <em>"stop display"</em></span>
-    </div>
-    <button type="button" class="close-btn" onclick={dismiss} title="Dismiss">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
+    <p class="hint">
+      <span>Say <strong>“show me {shown[0]?.id ?? "A"}”</strong></span>
+      <span class="or">or ask about <strong>{hint}</strong></span>
+    </p>
+    <button type="button" class="close" onclick={dismiss} aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18 6 6 18M6 6l12 12" />
       </svg>
     </button>
   </header>
 
-  <!-- Tetris / Mosaic Collage Grid -->
-  <main class="grid-container">
-    {#each images as item, idx (item.id)}
-      {@const isHighlighted = activeId === item.id.toUpperCase()}
-      {@const isDimmed = activeId !== null && !isHighlighted}
-      <article
-        class="mosaic-tile {getSpanClass(idx)}"
-        class:highlighted={isHighlighted}
-        class:dimmed={isDimmed}
-      >
-        <img
-          src={item.url}
-          alt={item.title || card.query}
-          loading="eager"
-          class="tile-image"
-        />
-
-        <!-- Letter / Identifier Badge -->
-        <div class="badge" class:badge-active={isHighlighted}>
-          {item.id}
-        </div>
-
-        <!-- Info overlay -->
-        <div class="tile-caption" class:caption-expanded={isHighlighted}>
-          <div class="caption-header">
-            {#if item.title}
-              <h3 class="tile-title">{item.title}</h3>
-            {/if}
-            {#if item.source}
-              <span class="tile-source">{item.source}</span>
-            {/if}
+  <div class="stage">
+    <main
+      class="sections"
+      class:stacked={boxH > boxW}
+      bind:clientWidth={boxW}
+      bind:clientHeight={boxH}
+    >
+      {#each sections as sec (sec.label)}
+        <section class="side">
+          {#if sec.label}
+            <h2 class="side-label">{sec.label}</h2>
+          {/if}
+          <div
+            class="grid"
+            style:grid-template-columns={`repeat(${sec.layout.cols}, minmax(0, 1fr))`}
+            style:grid-template-rows={`repeat(${sec.layout.rows}, minmax(0, 1fr))`}
+            style:grid-template-areas={sec.layout.areas.join(" ")}
+          >
+            {#each sec.items as item, idx (item.id)}
+              {@const lit = active === item.id.toUpperCase()}
+              <div
+                class="tile"
+                class:hero={idx === 0}
+                class:lit
+                bind:this={tiles[item.id]}
+                class:loaded={loaded[item.id]}
+                class:soft={soft[item.id]}
+                style:grid-area={sec.layout.slots[idx]}
+                style:--i={order.indexOf(item)}
+                role="button"
+                tabindex="0"
+                aria-label={`Picture ${item.id}`}
+                onclick={() => focus(item.id)}
+                onkeydown={(e) => e.key === "Enter" && focus(item.id)}
+              >
+                <img
+                  class="backdrop"
+                  src={picture(item.id, "thumb")}
+                  alt=""
+                  aria-hidden="true"
+                  decoding="async"
+                />
+                <img
+                  class="photo"
+                  src={picture(item.id, "full")}
+                  alt={item.title || card.query}
+                  decoding="async"
+                  onload={(e) => arrived(e, item)}
+                  onerror={() => missing(item.id)}
+                />
+                <span class="badge">{item.id}</span>
+                <div class="caption">
+                  {#if item.title}
+                    <h2>{item.title}</h2>
+                  {/if}
+                  {#if item.source}
+                    <span class="source">{item.source}</span>
+                  {/if}
+                </div>
+              </div>
+            {/each}
           </div>
-          {#if isHighlighted && item.snippet}
-            <p class="tile-snippet">{item.snippet}</p>
+        </section>
+      {/each}
+    </main>
+  </div>
+
+  <!-- An each of one: the picture going away keeps its own item while it
+       zooms home, after `zoomed` has already moved on. -->
+  {#each zoomed ? [zoomed] : [] as z (z.id)}
+    <div
+      class="zoom"
+      transition:zoom|global={{ id: z.id }}
+      role="button"
+      tabindex="0"
+      aria-label="Back to all the pictures"
+      onclick={() => focus(null)}
+      onkeydown={(e) => e.key === "Enter" && focus(null)}
+    >
+      <img
+        class="backdrop"
+        src={picture(z.id, "thumb")}
+        alt=""
+        aria-hidden="true"
+      />
+      <img
+        class="zoom-photo"
+        src={picture(z.id, "full")}
+        alt={z.title || card.query}
+      />
+      <div class="zoom-caption">
+        <span class="badge">{z.id}</span>
+        <div class="zoom-text">
+          {#if z.title}
+            <h2>{z.title}</h2>
+          {/if}
+          {#if z.source}
+            <span class="source">{z.source}</span>
+          {/if}
+          {#if z.snippet}
+            <p class="snippet">{z.snippet}</p>
           {/if}
         </div>
-      </article>
-    {/each}
-  </main>
+        <p class="zoom-hint">Say “next”, “previous” or “go back”</p>
+      </div>
+    </div>
+  {/each}
+
+  {#key takeover.expires_at}
+    <div class="drain" aria-hidden="true" style:--from={drainFrom}></div>
+  {/key}
 </div>
 
 <style>
-  .collage-takeover {
+  .collage {
     position: fixed;
     inset: 0;
     z-index: 25;
-    display: flex;
-    flex-direction: column;
-    background: #090a0f;
-    color: #f1f5f9;
-    padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
-      max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-3);
+    padding: calc(
+        max(var(--space-4), env(safe-area-inset-top)) + var(--frame-y, 0px)
+      )
+      calc(
+        max(var(--space-4), env(safe-area-inset-right)) + var(--frame-x, 0px)
+      )
+      calc(var(--space-4) + var(--frame-y, 0px))
+      calc(max(var(--space-4), env(safe-area-inset-left)) + var(--frame-x, 0px));
+    background: var(--stage);
+    color: var(--on-stage);
+    font-family: var(--font-body);
     overflow: hidden;
     user-select: none;
   }
 
-  .progress-bar-track {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: #facc15;
-    transition: width 250ms linear;
-  }
-
-  .header {
+  header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    height: 48px;
-    margin-bottom: 14px;
-    flex-shrink: 0;
+    gap: var(--space-4);
+    min-width: 0;
   }
-
-  .query-pill {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 9999px;
-    padding: 6px 18px;
-    font-size: 1.15rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: #ffffff;
-  }
-
-  .search-icon {
-    color: #facc15;
-  }
-
-  .hint-pill {
-    display: flex;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 9999px;
-    padding: 6px 16px;
-    font-size: 0.95rem;
-    color: #cbd5e1;
-  }
-
-  .hint-pill strong {
-    color: #facc15;
-    margin: 0 3px;
-  }
-
-  .hint-pill em {
-    color: #94a3b8;
-    font-style: normal;
-  }
-
-  .close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #94a3b8;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .close-btn:hover {
-    background: rgba(255, 255, 255, 0.16);
-    color: #ffffff;
-  }
-
-  /* Bento / Tetris Mosaic Grid */
-  .grid-container {
+  .title {
     flex: 1;
+    min-width: 0;
+  }
+  .kicker {
+    margin: 0;
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-weight: var(--weight-label);
+    font-size: var(--type-sm);
+  }
+  h1 {
+    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: calc(var(--type-lg) * 0.8);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .hint {
+    margin: 0;
+    flex-shrink: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    grid-auto-flow: dense;
-    gap: 12px;
+    justify-items: end;
+    gap: 0.15em;
+    color: var(--on-stage-soft);
+    font-size: var(--type-sm);
+  }
+  .hint strong {
+    color: var(--on-stage);
+    font-weight: var(--weight-label);
+  }
+  .or {
+    font-size: var(--type-caption);
+  }
+  .close {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: calc(2.6rem * var(--ui-scale));
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--on-stage) 10%, transparent);
+    color: var(--on-stage-soft);
+    cursor: pointer;
+  }
+  .close svg {
+    width: 45%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+
+  .stage {
+    display: grid;
     min-height: 0;
   }
-
-  /* Interlocking Spans */
-  .tile-hero {
-    grid-column: span 2;
-    grid-row: span 2;
+  .sections {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    min-height: 0;
+    transition:
+      opacity var(--dur-mid) ease,
+      transform var(--dur-mid) var(--ease-spring);
+  }
+  .sections.stacked {
+    grid-auto-flow: row;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  .side {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-2);
+    min-width: 0;
+    min-height: 0;
+  }
+  .side:only-child {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .side-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    color: var(--on-stage);
+    font-size: var(--type-md);
+  }
+  .side-label::before {
+    content: "";
+    width: 0.3em;
+    height: 1em;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+  .grid {
+    display: grid;
+    gap: var(--space-3);
+    min-height: 0;
+  }
+  /* The open picture has lifted out of its tile. */
+  .tile.lit {
+    visibility: hidden;
+  }
+  .tile {
+    cursor: pointer;
   }
 
-  .tile-tall {
-    grid-column: span 1;
-    grid-row: span 2;
-  }
-
-  .tile-wide {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .tile-sq1 {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .tile-sq2 {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .tile-wide2 {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .tile-standard {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .mosaic-tile {
+  .tile {
     position: relative;
-    border-radius: 14px;
+    min-width: 0;
+    min-height: 0;
     overflow: hidden;
-    background: #151821;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--on-stage) 8%, var(--stage));
+    transition:
+      opacity var(--dur-normal) ease,
+      filter var(--dur-normal) ease,
+      box-shadow var(--dur-normal) ease;
   }
 
-  .tile-image {
+  img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    background: #11141c;
+  }
+  /* The engine's thumbnail, blurred: the tile's placeholder while the
+     picture arrives, and the backdrop behind a soft one. */
+  .backdrop {
+    filter: blur(1.4rem) saturate(1.2) brightness(0.7);
+    transform: scale(1.15);
+  }
+  .photo {
+    opacity: 0;
+    transition: opacity var(--dur-slow) ease;
+  }
+  .loaded .photo {
+    opacity: 1;
+  }
+  .soft .photo {
+    object-fit: contain;
   }
 
-  /* Identifier Pill Badge */
   .badge {
     position: absolute;
-    top: 12px;
-    left: 12px;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background: rgba(10, 12, 18, 0.75);
-    backdrop-filter: blur(10px);
-    border: 1.5px solid rgba(255, 255, 255, 0.3);
-    color: #ffffff;
-    font-size: 1.25rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    z-index: 5;
-    transition: all 220ms ease;
+    top: var(--space-2);
+    left: var(--space-2);
+    display: grid;
+    place-items: center;
+    width: calc(2.4rem * var(--ui-scale));
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.55);
+    box-shadow: 0 0 0 0.12em rgb(255 255 255 / 0.35);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--type-md);
+    line-height: 1;
+    transition:
+      background var(--dur-normal) ease,
+      color var(--dur-normal) ease,
+      transform var(--dur-normal) var(--ease-spring);
   }
 
-  .badge-active {
-    background: #facc15;
-    color: #000000;
-    border-color: #fde047;
-    box-shadow: 0 0 16px rgba(250, 204, 21, 0.7);
-    transform: scale(1.1);
-  }
-
-  /* Highlight & Dim States */
-  .mosaic-tile.highlighted {
-    border-color: #facc15;
-    box-shadow: 0 0 0 3px #facc15, 0 16px 40px rgba(0, 0, 0, 0.7);
-    transform: scale(1.02);
-    z-index: 10;
-  }
-
-  .mosaic-tile.dimmed {
-    opacity: 0.38;
-    filter: saturate(0.5) brightness(0.75);
-  }
-
-  /* Captions */
-  .tile-caption {
+  /* Photos are any colour, so the caption sits on its own dark scrim
+     whatever the theme. */
+  .caption {
     position: absolute;
-    bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(180deg, transparent 0%, rgba(9, 10, 15, 0.88) 45%, #090a0f 100%);
-    padding: 24px 14px 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    transition: all 220ms ease;
+    bottom: 0;
+    display: grid;
+    gap: 0.2em;
+    padding: var(--space-5) var(--space-3) var(--space-2);
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.78),
+      rgb(0 0 0 / 0.45) 60%,
+      transparent
+    );
+    color: #fff;
   }
-
-  .caption-header {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .tile-title {
+  h2 {
     margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #f8fafc;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  }
-
-  .tile-source {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .tile-snippet {
-    margin: 4px 0 0 0;
-    font-size: 0.85rem;
-    line-height: 1.35;
-    color: #fde047;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-family: var(--font-display);
+    font-weight: var(--weight-label);
+    font-size: var(--type-caption);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+  .hero h2 {
+    font-size: var(--type-sm);
+  }
+  .source {
+    font-size: calc(var(--type-caption) * 0.8);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+  .snippet {
+    margin: 0;
+    font-size: var(--type-sm);
+    line-height: 1.35;
+    opacity: 0.85;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
   }
+  /* Full screen: the whole picture over a blur of itself, its caption on
+     a scrim at the bottom. Above the header; below the countdown. */
+  .zoom {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    background: var(--stage);
+    cursor: zoom-out;
+  }
+  .zoom .backdrop {
+    filter: blur(2rem) saturate(1.1) brightness(0.55);
+  }
+  .zoom-photo {
+    object-fit: contain;
+    transform-origin: center;
+  }
+  .zoom-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-6, 4rem) calc(var(--space-5) + var(--frame-x, 0px))
+      calc(var(--space-4) + var(--frame-y, 0px));
+    background: linear-gradient(to top, rgb(0 0 0 / 0.8), transparent);
+    color: #fff;
+  }
+  .zoom-caption .badge {
+    position: static;
+    flex-shrink: 0;
+    width: calc(3rem * var(--ui-scale));
+    background: var(--accent);
+    box-shadow: none;
+    color: var(--stage);
+    font-size: var(--type-lg);
+  }
+  .zoom-text {
+    flex: 1;
+    display: grid;
+    gap: 0.25em;
+    min-width: 0;
+  }
+  .zoom-text h2 {
+    font-weight: var(--weight-display);
+    font-size: var(--type-md);
+  }
+  .zoom-hint {
+    margin: 0;
+    flex-shrink: 0;
+    font-size: var(--type-caption);
+    opacity: 0.75;
+  }
 
-  /* Responsive layout for portrait / narrower screens */
-  @media (max-width: 900px), (orientation: portrait) {
-    .grid-container {
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: auto;
+  .lit {
+    box-shadow: 0 0 0 0.2rem var(--accent);
+  }
+  .lit .badge {
+    background: var(--accent);
+    color: var(--stage);
+  }
+
+  .drain {
+    position: absolute;
+    z-index: 3;
+    left: 0;
+    right: 0;
+    bottom: var(--frame-y, 0px);
+    height: calc(0.3rem * var(--ui-scale));
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(var(--from));
+    animation: drain var(--left) linear forwards;
+    opacity: 0.85;
+  }
+  @keyframes drain {
+    from {
+      transform: scaleX(var(--from));
     }
-
-    .tile-hero {
-      grid-column: span 2;
-      grid-row: span 1;
-      height: 220px;
+    to {
+      transform: scaleX(0);
     }
+  }
 
-    .tile-tall {
-      grid-column: span 1;
-      grid-row: span 1;
-      height: 180px;
+  @media (prefers-reduced-motion: no-preference) {
+    .collage {
+      animation: rise var(--dur-mid) var(--ease-spring) both;
     }
-
-    .tile-wide, .tile-sq1, .tile-sq2, .tile-wide2, .tile-standard {
-      grid-column: span 1;
-      grid-row: span 1;
-      height: 180px;
+    /* Tiles arrive one after another, best first. */
+    .tile {
+      animation: arrive var(--dur-slow) var(--ease-spring) both;
+      animation-delay: calc(var(--i) * 70ms);
     }
+    /* The big picture drifts slowly while the collage is up. */
+    .hero:not(.soft) .photo {
+      animation: drift 40s linear both;
+    }
+    .spotlit .hero .photo {
+      animation-play-state: paused;
+    }
+    .zoom-caption {
+      animation: caption-in var(--dur-mid) ease 0.45s both;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drain {
+      animation: none;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: scale(0.985);
+    }
+  }
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      transform: translateY(1.5vh) scale(0.97);
+    }
+  }
+  @keyframes caption-in {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+  }
+  @keyframes drift {
+    from {
+      transform: scale(1.02);
+    }
+    to {
+      transform: scale(1.1) translate(-1.5%, -1%);
+    }
+  }
 
-    .hint-pill {
+  @media (orientation: portrait) {
+    .or {
       display: none;
     }
   }

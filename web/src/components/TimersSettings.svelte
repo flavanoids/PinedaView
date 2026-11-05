@@ -39,9 +39,10 @@
 
   async function start(mins: number): Promise<void> {
     if (mins <= 0) return;
-    const name = label.trim() || `${mins} minute timer`;
+    const given = label.trim();
+    const name = given || `${mins} minute timer`;
     const ok = await settings.attempt(
-      () => client.addTimer(mins * 60, name),
+      () => client.addTimer(mins * 60, name, "timer", given || null),
       `${name} started`,
     );
     if (ok) {

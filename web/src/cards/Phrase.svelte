@@ -67,6 +67,11 @@
     gap: 0.4em;
     overflow: hidden;
   }
+  /* A panel that fills its screen sets the row's height, which on a tall
+     screen is less than this floor: fit the row instead. */
+  :global(.stage.fills) .fit {
+    min-height: 0;
+  }
   .lang-tag {
     font-size: max(0.45em, var(--type-caption));
     text-transform: uppercase;

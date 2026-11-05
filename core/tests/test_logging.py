@@ -46,15 +46,12 @@ def test_access_log_filter_drops_health_200() -> None:
     from pinedaview.logging_config import AccessLogFilter
 
     filt = AccessLogFilter()
-    rec_suppress = logging.LogRecord(
-        "uvicorn.access", logging.INFO, "", 0, '192.0.2.161:1234 - "GET /api/health HTTP/1.1" 200', (), None
-    )
-    rec_keep_500 = logging.LogRecord(
-        "uvicorn.access", logging.WARNING, "", 0, '192.0.2.161:1234 - "GET /api/health HTTP/1.1" 500', (), None
-    )
-    rec_keep_other = logging.LogRecord(
-        "uvicorn.access", logging.INFO, "", 0, '192.0.2.161:1234 - "GET /api/status HTTP/1.1" 200', (), None
-    )
+    msg_200 = '192.0.2.161:1234 - "GET /api/health HTTP/1.1" 200'
+    msg_500 = '192.0.2.161:1234 - "GET /api/health HTTP/1.1" 500'
+    msg_status = '192.0.2.161:1234 - "GET /api/status HTTP/1.1" 200'
+    rec_suppress = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, msg_200, (), None)
+    rec_keep_500 = logging.LogRecord("uvicorn.access", logging.WARNING, "", 0, msg_500, (), None)
+    rec_keep_other = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, msg_status, (), None)
     assert not filt.filter(rec_suppress)
     assert filt.filter(rec_keep_500)
     assert filt.filter(rec_keep_other)

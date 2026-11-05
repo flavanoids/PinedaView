@@ -33,9 +33,7 @@ class AccessLogFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
-        if "GET /api/health HTTP" in msg and " 200" in msg:
-            return False
-        return True
+        return not ("GET /api/health HTTP" in msg and " 200" in msg)
 
 
 class JsonFormatter(logging.Formatter):

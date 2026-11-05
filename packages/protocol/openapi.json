@@ -1470,6 +1470,17 @@
             "title": "Night End",
             "type": "string"
           },
+          "night_weekend_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Night Weekend End"
+          },
           "night_weekend_start": {
             "default": "02:00",
             "title": "Night Weekend Start",
@@ -1923,6 +1934,18 @@
             ],
             "title": "Night End"
           },
+          "night_weekend_end": {
+            "anyOf": [
+              {
+                "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Night Weekend End"
+          },
           "night_weekend_start": {
             "anyOf": [
               {
@@ -2049,6 +2072,90 @@
         ],
         "title": "DisplayState",
         "type": "string"
+      },
+      "FavoriteRecipe": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "number"
+          },
+          "dish": {
+            "default": "",
+            "title": "Dish",
+            "type": "string"
+          },
+          "favorite": {
+            "default": false,
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "default": "",
+            "title": "Image",
+            "type": "string"
+          },
+          "ingredients": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ingredients",
+            "type": "array"
+          },
+          "rating": {
+            "default": 0,
+            "title": "Rating",
+            "type": "number"
+          },
+          "rating_count": {
+            "default": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "servings": {
+            "default": "",
+            "title": "Servings",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_min": {
+            "default": 0,
+            "title": "Total Min",
+            "type": "integer"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "added"
+        ],
+        "title": "FavoriteRecipe",
+        "type": "object"
       },
       "Grid": {
         "description": "A hand-placed layout from the layout builder: each card snapped to a\ncell rectangle on a ``cols``-wide grid. Rows are however many the cards\nreach. A screen without one keeps the automatic card_stack flow.",
@@ -2330,6 +2437,28 @@
         "title": "HostStats",
         "type": "object"
       },
+      "ImageGroup": {
+        "description": "One side of a comparison (\"Fuji apples\" vs \"Honeycrisp apples\").",
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "ids"
+        ],
+        "title": "ImageGroup",
+        "type": "object"
+      },
       "ImageItem": {
         "properties": {
           "aspect_ratio": {
@@ -2382,6 +2511,13 @@
       "ImageSearchTakeover": {
         "description": "A visual collage of image search results, tiled in an interlocking\nmosaic layout with letter badges (A, B, C...) for voice-guided inspection.",
         "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGroup"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
           "highlight": {
             "anyOf": [
               {
@@ -2664,6 +2800,17 @@
       },
       "Photo": {
         "properties": {
+          "aspect": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aspect"
+          },
           "colours": {
             "default": [],
             "items": {
@@ -3350,6 +3497,171 @@
         "title": "ProfileUpdate",
         "type": "object"
       },
+      "RecipeBox": {
+        "properties": {
+          "favorites": {
+            "items": {
+              "$ref": "#/components/schemas/FavoriteRecipe"
+            },
+            "title": "Favorites",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeVisit"
+            },
+            "title": "History",
+            "type": "array"
+          }
+        },
+        "required": [
+          "favorites",
+          "history"
+        ],
+        "title": "RecipeBox",
+        "type": "object"
+      },
+      "RecipeChoice": {
+        "description": "One recipe to choose from: its letter, what it is, and its photos.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "images": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "rating": {
+            "default": 0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Rating",
+            "type": "number"
+          },
+          "rating_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "servings": {
+            "default": "",
+            "title": "Servings",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_min": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "RecipeChoice",
+        "type": "object"
+      },
+      "RecipeChoicesTakeover": {
+        "description": "A few recipes for one dish side by side, each with photos from its\nown page, to pick one by its letter (\"which one would you like? A, B,\nor C?\"). Picking one replaces this with that recipe's card.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeChoice"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Choices",
+            "type": "array"
+          },
+          "dish": {
+            "title": "Dish",
+            "type": "string"
+          },
+          "highlight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highlight"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ImageItem"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "kind": {
+            "const": "recipe_choices",
+            "default": "recipe_choices",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dish",
+          "images",
+          "choices"
+        ],
+        "title": "RecipeChoicesTakeover",
+        "type": "object"
+      },
+      "RecipeFavorite": {
+        "properties": {
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "favorite"
+        ],
+        "title": "RecipeFavorite",
+        "type": "object"
+      },
+      "RecipeShown": {
+        "properties": {
+          "opened": {
+            "title": "Opened",
+            "type": "string"
+          },
+          "shown": {
+            "title": "Shown",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "opened",
+          "shown"
+        ],
+        "title": "RecipeShown",
+        "type": "object"
+      },
       "RecipeTakeover": {
         "description": "A recipe. Ingredient indexes count lines across the groups, in the\norder they're listed here; ones past the end are ignored.",
         "properties": {
@@ -3471,6 +3783,100 @@
         "title": "RecipeTakeover",
         "type": "object"
       },
+      "RecipeVisit": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "by": {
+            "default": "",
+            "title": "By",
+            "type": "string"
+          },
+          "cooked": {
+            "default": false,
+            "title": "Cooked",
+            "type": "boolean"
+          },
+          "dish": {
+            "default": "",
+            "title": "Dish",
+            "type": "string"
+          },
+          "favorite": {
+            "default": false,
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "default": "",
+            "title": "Image",
+            "type": "string"
+          },
+          "ingredients": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ingredients",
+            "type": "array"
+          },
+          "rating": {
+            "default": 0,
+            "title": "Rating",
+            "type": "number"
+          },
+          "rating_count": {
+            "default": 0,
+            "title": "Rating Count",
+            "type": "integer"
+          },
+          "servings": {
+            "default": "",
+            "title": "Servings",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_min": {
+            "default": 0,
+            "title": "Total Min",
+            "type": "integer"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "at"
+        ],
+        "title": "RecipeVisit",
+        "type": "object"
+      },
       "ReplaceRequest": {
         "properties": {
           "old": {
@@ -3547,6 +3953,26 @@
           "skipped_screens"
         ],
         "title": "RestoreSummary",
+        "type": "object"
+      },
+      "RotationBody": {
+        "description": "The kiosk screen's direction: \"normal\", or the picture turned 90,\n180 or 270 degrees (wlr-randr's names).",
+        "properties": {
+          "rotation": {
+            "enum": [
+              "normal",
+              "90",
+              "180",
+              "270"
+            ],
+            "title": "Rotation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rotation"
+        ],
+        "title": "RotationBody",
         "type": "object"
       },
       "ScreenLook": {
@@ -3645,6 +4071,17 @@
             "default": "05:00",
             "title": "Night End",
             "type": "string"
+          },
+          "night_weekend_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Night Weekend End"
           },
           "night_weekend_start": {
             "default": "02:00",
@@ -3994,6 +4431,17 @@
             "default": "05:00",
             "title": "Night End",
             "type": "string"
+          },
+          "night_weekend_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Night Weekend End"
           },
           "night_weekend_start": {
             "default": "02:00",
@@ -4434,6 +4882,17 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "required": [
@@ -4481,6 +4940,9 @@
               },
               {
                 "$ref": "#/components/schemas/ImageSearchTakeover"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeChoicesTakeover"
               }
             ],
             "title": "Card"
@@ -4519,6 +4981,9 @@
               },
               {
                 "$ref": "#/components/schemas/ImageSearchTakeover"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeChoicesTakeover"
               }
             ],
             "title": "Card"
@@ -4603,6 +5068,19 @@
               }
             ],
             "title": "Highlight"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 3600.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
           },
           "skipped": {
             "anyOf": [
@@ -4823,6 +5301,17 @@
             "title": "Label",
             "type": "string"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "source": {
             "anyOf": [
               {
@@ -4858,6 +5347,18 @@
             "default": "Timer",
             "title": "Label",
             "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "seconds": {
             "exclusiveMinimum": 0.0,
@@ -6190,6 +6691,60 @@
         "summary": "Control Restart System"
       }
     },
+    "/api/control/rotation": {
+      "get": {
+        "operationId": "control_rotation_api_control_rotation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotationBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Control Rotation"
+      },
+      "put": {
+        "operationId": "control_rotate_api_control_rotation_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotationBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Rotate"
+      }
+    },
     "/api/control/snapshot": {
       "get": {
         "operationId": "control_snapshot_api_control_snapshot_get",
@@ -7288,6 +7843,43 @@
         "summary": "Get Photo Display"
       }
     },
+    "/api/photos/{name}/mask": {
+      "get": {
+        "operationId": "get_photo_mask_api_photos__name__mask_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Photo Mask"
+      }
+    },
     "/api/photos/{name}/motion": {
       "get": {
         "operationId": "get_photo_motion_api_photos__name__motion_get",
@@ -7621,6 +8213,139 @@
         "summary": "Update Profile"
       }
     },
+    "/api/recipes": {
+      "get": {
+        "operationId": "recipe_box_api_recipes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeBox"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Recipe Box"
+      }
+    },
+    "/api/recipes/{recipe_id}/favorite": {
+      "delete": {
+        "operationId": "unfavorite_recipe_api_recipes__recipe_id__favorite_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recipe_id",
+            "required": true,
+            "schema": {
+              "title": "Recipe Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeFavorite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unfavorite Recipe"
+      },
+      "post": {
+        "operationId": "favorite_recipe_api_recipes__recipe_id__favorite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recipe_id",
+            "required": true,
+            "schema": {
+              "title": "Recipe Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeFavorite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Favorite Recipe"
+      }
+    },
+    "/api/recipes/{recipe_id}/show": {
+      "post": {
+        "operationId": "show_recipe_api_recipes__recipe_id__show_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recipe_id",
+            "required": true,
+            "schema": {
+              "title": "Recipe Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeShown"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Show Recipe"
+      }
+    },
     "/api/secrets": {
       "get": {
         "operationId": "list_secrets_api_secrets_get",
@@ -7928,6 +8653,58 @@
           }
         },
         "summary": "Show Takeover"
+      }
+    },
+    "/api/takeover/images/{image_id}": {
+      "get": {
+        "operationId": "takeover_image_api_takeover_images__image_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "enum": [
+                "thumb",
+                "full"
+              ],
+              "title": "Size",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/webp": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Takeover Image"
       }
     },
     "/api/themes": {

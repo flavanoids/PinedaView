@@ -244,3 +244,20 @@ async def test_every_call_is_audited(client: httpx.AsyncClient, settings: Settin
             "SELECT client, tool, ok, trace FROM calls WHERE tool = 'display_status'"
         ).fetchone()
     assert row == ("antigua", "display_status", 1, _META["traceparent"])
+
+
+async def test_screen_turn(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from pinedaview import mcp_server
+
+    at = {"now": "normal"}
+    monkeypatch.setattr(mcp_server, "rotation", lambda _control: at["now"])
+    monkeypatch.setattr(mcp_server, "rotate", lambda _control, turn: at.update(now=turn))
+
+    done = (await call(client, "screen_turn", {"to": "tall"}))["structuredContent"]
+    assert done == {"rotation": "90", "changed": True}
+    again = (await call(client, "screen_turn", {"to": "tall"}))["structuredContent"]
+    assert again == {"rotation": "90", "changed": False}
+    flipped = (await call(client, "screen_turn", {"to": "flip"}))["structuredContent"]
+    assert flipped["rotation"] == "270"
+    back = (await call(client, "screen_turn", {"to": "turn"}))["structuredContent"]
+    assert back["rotation"] == "normal"

@@ -41,7 +41,9 @@
   const tier = $derived.by(() => {
     const layout = getLayout(screen.layout ?? profile.layout);
     // Another screen's width isn't known; it's most likely the wall display.
-    return here ? resolveTier(layout, width) : resolveTier(layout, Infinity);
+    return here
+      ? resolveTier(layout, width, window.innerHeight)
+      : resolveTier(layout, Infinity);
   });
 
   interface Tile {

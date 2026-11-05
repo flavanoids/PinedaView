@@ -40,12 +40,20 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pinedaview.cameras import CameraError, CameraService
 from pinedaview.config import McpConfig
-from pinedaview.control import ControlError, restart_display, restart_system
+from pinedaview.control import (
+    ControlError,
+    restart_display,
+    restart_system,
+    rotate,
+    rotation,
+    turned,
+)
 from pinedaview.runtime import Runtime
 from pinedaview.takeover import (
     AlarmTakeover,
     CameraTakeover,
     ImageSearchTakeover,
+    RecipeChoicesTakeover,
     RecipeTakeover,
     Takeover,
     TakeoverUpdate,
@@ -62,6 +70,7 @@ SCOPES: dict[str, str] = {
     "takeover_get": "display:read",
     "theme_set": "display:write",
     "clock_mode": "display:write",
+    "screen_turn": "display:write",
     "takeover_show": "display:write",
     "takeover_update": "display:write",
     "takeover_clear": "display:write",
@@ -293,6 +302,14 @@ class ClockResult(BaseModel):
     """Screens switched; 0 when they were all that way already."""
 
 
+class TurnResult(BaseModel):
+    rotation: str
+    """Where the screen is now: "normal" (wide), "90" (tall), "180" or
+    "270" (those two flipped over)."""
+    changed: bool
+    """False when it was already that way."""
+
+
 class Cleared(BaseModel):
     was: str | None
     """The kind of card that came down, or null when none was up."""
@@ -518,12 +535,28 @@ def build_mcp(  # noqa: C901 - one closure per tool
             on_save("device")
         return ClockResult(changed=changed)
 
+    @mcp.tool(title="Turn the screen", annotations=once, meta=llm)
+    @_failing
+    async def screen_turn(to: Literal["wide", "tall", "flip", "turn"]) -> TurnResult:
+        """Turn the kiosk's screen: "wide", "tall", "flip" it over, or "turn"
+        it between wide and tall. The screen must be physically turned too."""
+        try:
+            now = await asyncio.to_thread(rotation, runtime.settings.control)
+            then = turned(now, to)
+            if then != now:
+                await asyncio.to_thread(rotate, runtime.settings.control, then)
+        except ControlError as exc:
+            raise Fail("control_failed", str(exc)) from exc
+        return TurnResult(rotation=then, changed=then != now)
+
     @mcp.tool(title="Show a full-screen card", annotations=once, meta=llm)
     async def takeover_show(
-        card: RecipeTakeover | AlarmTakeover | ImageSearchTakeover, seconds: float = 120
+        card: RecipeTakeover | AlarmTakeover | ImageSearchTakeover | RecipeChoicesTakeover,
+        seconds: float = 120,
     ) -> Takeover:
-        """Put a full-screen card (a recipe or how-to guide, an image search collage,
-        or an alarm) on the display for `seconds` (1-3600); it replaces any card that's up."""
+        """Put a full-screen card (a recipe or how-to guide, recipes to choose from,
+        an image search collage, or an alarm) on the display for `seconds` (1-3600);
+        it replaces any card that's up."""
         return runtime.takeover.show(card, max(1.0, min(seconds, 3600.0)))
 
     @mcp.tool(title="Update the full-screen card", annotations=write, meta=no_llm)
@@ -585,10 +618,10 @@ def build_mcp(  # noqa: C901 - one closure per tool
         @mcp.tool(title="Show a camera", annotations=write, meta=llm)
         @_failing
         async def camera_show(
-            camera: Camera,
+            camera: Camera,  # type: ignore[valid-type]
             seconds: float = 60,
-            pip: Camera | None = None,
-        ) -> CameraShown:  # type: ignore[valid-type]
+            pip: Camera | None = None,  # type: ignore[valid-type]
+        ) -> CameraShown:
             """Show a camera's live video full screen for `seconds` (10-600), optionally
             with a second camera in Picture-in-Picture. Over a recipe, the recipe comes
             back when it ends. Showing the camera that's already up gives it more time."""

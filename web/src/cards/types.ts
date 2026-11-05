@@ -273,6 +273,8 @@ export interface TimerEntry {
   source?: string | null;
   /** An alarm shows when it goes off ("7:00 AM"), not a countdown. */
   kind?: "timer" | "alarm" | "reminder";
+  /** What the user called it; none, and the clock's list leaves it blank. */
+  name?: string | null;
 }
 
 export function pick<T>(view: ViewModel, key: string): T | undefined {

@@ -370,6 +370,51 @@ hash changed before touching the kiosk:
 curl -s http://<server-host>:8090/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)'
 ```
 
+### Turning the kiosk's screen
+
+The kiosk's direction (wide, tall, or either flipped over) is kept on the
+kiosk itself, in `~/.config/pinedaview/rotation` (or `~/.config/pineda/rotation`), and set with
+`PUT /api/control/rotation` (the phone menu's Turned row, or the voice
+assistant's `screen_turn` MCP tool). It needs two pieces on the kiosk:
+
+```bash
+sudo install -m 755 packaging/pinedaview-control-wrapper.sh /usr/local/bin/pinedaview-control-wrapper.sh
+sudo install -m 755 packaging/pinedaview-kiosk-launch.sh /usr/local/bin/pinedaview-kiosk-launch
+```
+
+and `pinedaview-kiosk-launch` ahead of Chromium in the unit's (or its drop-in's)
+`ExecStart`: `cage -- /usr/local/bin/pinedaview-kiosk-launch /usr/lib/chromium/chromium ...`.
+cage resets the output on every start; the launcher puts the saved
+direction back with `wlr-randr` before the browser opens.
+
+When a Pi kiosk changes between wide and tall it fades out and reloads, so
+the Photo Clock and the cards lay out afresh. A turn within the same shape
+(a flip) needs no reload.
+
+On a Raspberry Pi 4 the display hardware can only flip 180°, so a 90° turn
+is done by the GPU on every frame. Measured 2026-10-26 on a Pi 4 driving a
+2048×1280 panel (Photo Clock, 3 min each, rAF timing over Chromium's
+DevTools port):
+
+| Setup | Photo swipe | Still |
+|---|---|---|
+| Wide, liquid glass | ~39 fps, 17% slow frames | 60 fps |
+| Tall, liquid glass | ~32 fps, 52% slow frames | 60 fps |
+| Tall, flat glass | ~31 fps | 60 fps |
+| Tall, fade instead of swipe | ~21 fps | 60 fps |
+| Tall, only the new photo sliding (tried, reverted) | ~29 fps | 60 fps |
+
+So the gap is the turn itself, not the glass or how many layers move.
+
+To measure again: add `--remote-debugging-port=9222` to Chromium in the
+kiosk's `ExecStart` (it listens on the kiosk's 127.0.0.1 only), reach it
+with `ssh -L 9223:127.0.0.1:9222 <kiosk>`, attach with Playwright's
+`connect_over_cdp`, and record `requestAnimationFrame` gaps plus
+`longtask` entries. Take the flag out again afterwards. Restart the kiosk
+once and let it come up before restarting again: a Chromium still shutting
+down can hold `systemctl restart` for the full 90 s stop timeout, with the
+screen black throughout.
+
 ### Clearing the kiosk's cache after a web-client deploy
 
 A new `web/dist` build needs the kiosk's Chromium to actually fetch it.

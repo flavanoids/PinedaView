@@ -6,7 +6,8 @@ kiosk's own device id as ``?screen=`` (older QR codes without it fall back to
 the most recently seen screen). A home page — a live miniature of the screen,
 quick timer/alarms/clock-only buttons and four ways in — and, picked by the
 URL hash, a page each for Alarms (alarms and reminders, kept by Antigua, see
-:mod:`pinedaview.alarms`), Themes, Add photos (same public upload as
+:mod:`pinedaview.alarms`), Recipes (Antigua's favorites and history, see
+:mod:`pinedaview.recipes`), Themes, Add photos (same public upload as
 ``/upload``), Settings (cards, night clock, overnight dimming) and Device (health and
 restarts behind the ``[control] pin``). Pages slide in and out; Back pops
 history so the phone's own back gesture agrees.
@@ -546,6 +547,81 @@ MENU_HTML = """<!doctype html>
     transition: background-color 160ms ease, color 160ms ease;
   }
   .day[aria-pressed="true"] { background: var(--ink); color: var(--stage); }
+
+  /* Recipes: favorites or history from Antigua's recipe box; a row opens
+     to the whole recipe, with its page a tap away. */
+  .rc-seg {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    margin: 4px 0 16px;
+    border-radius: 999px;
+    background: var(--wash);
+  }
+  .rc-tab {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 18px;
+    background: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--soft);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+  .rc-tab[aria-pressed="true"] { background: var(--ink); color: var(--stage); }
+  .rc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .rc { border-bottom: 1px solid var(--rule); animation: pop 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .rc-head { display: flex; align-items: center; gap: 12px; }
+  .rc-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+  .rc-pic {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: var(--wash);
+  }
+  .rc-pic.none { display: grid; place-items: center; color: var(--faint); }
+  .rc-pic.none svg { width: 28px; height: 28px; }
+  .rc-words { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rc-title { font: 400 1.2rem/1.2 var(--display); overflow-wrap: anywhere; }
+  .rc-d { color: var(--soft); font-size: 0.84rem; }
+  .rc-d .ok { color: var(--accent); font-weight: 600; }
+  .rc-heart {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--faint);
+    display: grid;
+    place-items: center;
+  }
+  .rc-heart svg { width: 24px; height: 24px; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .rc-heart[aria-pressed="true"] { color: var(--accent); }
+  .rc-heart[aria-pressed="true"] svg { fill: currentColor; transform: scale(1.08); }
+  .rc-body { padding: 0 0 18px; }
+  .rc-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+  .rc-stats span { padding: 6px 12px; border-radius: 999px; background: var(--wash); font-size: 0.86rem; }
+  .rc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .rc-actions a.q { text-decoration: none; color: inherit; }
+  .rc-body h3 { font: 600 0.78rem var(--text); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--soft); margin: 14px 0 6px; }
+  .rc-body ul, .rc-body ol { margin: 0; padding-left: 1.3em; line-height: 1.45; }
+  .rc-body li + li { margin-top: 4px; }
+  .rc-src { margin-top: 14px; font-size: 0.82rem; color: var(--soft); overflow-wrap: anywhere; }
+  .rc-src a { color: inherit; }
 
   /* Add photos: one big target, then what's been sent. */
   .drop {
@@ -2052,6 +2128,23 @@ MENU_HTML = """<!doctype html>
       <p class="al-empty" id="al-empty" hidden></p>
     </div>
 
+    <div class="page" id="page-recipes" hidden>
+      <a class="back" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6"/></svg>
+        Your screen</a>
+      <h2 tabindex="-1">Recipes</h2>
+      <p class="lede">Favorites and what's been cooked. While a recipe's open, say
+        &ldquo;Alexa, favorite this recipe&rdquo; to keep it.</p>
+      <div class="rc-seg" role="group" aria-label="Show">
+        <button type="button" class="rc-tab" id="rc-tab-fav" aria-pressed="true">Favorites</button>
+        <button type="button" class="rc-tab" id="rc-tab-hist" aria-pressed="false">History</button>
+      </div>
+      <ul class="rc-list" id="rc-list" aria-label="Recipes"></ul>
+      <p class="al-empty" id="rc-empty" hidden></p>
+    </div>
+
     <div class="page" id="page-photos" hidden>
       <a class="back" href="#">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -2134,6 +2227,10 @@ MENU_HTML = """<!doctype html>
           aria-describedby="popups-s"></div>
         <p class="note" id="popups-s">Recipes, alarms, and the cameras when someone's at
           the door.</p>
+        <div id="turn-w" hidden>
+          <span class="label" id="turn-l">Turned</span>
+          <div class="chips" id="turn" role="radiogroup" aria-labelledby="turn-l"></div>
+        </div>
         <label class="label" for="sc-rename">Name</label>
         <div class="row2">
           <input class="sc-name" id="sc-rename" type="text" maxlength="40" autocomplete="off" />
@@ -2269,6 +2366,26 @@ MENU_HTML = """<!doctype html>
       </div>
       </section>
 
+      <section aria-labelledby="update-h">
+        <h3 id="update-h">Software update</h3>
+        <p class="lede" id="update-lede">
+          PinedaDisplay automatically checks private GitHub releases. You can also trigger an update on demand.</p>
+        <div class="restarts">
+          <button class="restart" type="button" data-restart="update">
+            <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+            <span><span class="t" id="up-title">Update software</span>
+              <span class="s" id="up-sub">Checks private GitHub repo and applies updates.</span></span>
+            <span aria-hidden="true" class="lock"><svg viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2"/>
+              <path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+          </button>
+        </div>
+      </section>
+
       <section aria-labelledby="shape-h">
         <h3 id="shape-h">Screen shape</h3>
         <p class="lede">Choose round for circular smart displays, or standard for rectangular.</p>
@@ -2327,6 +2444,14 @@ MENU_HTML = """<!doctype html>
       </svg>
       <span>Alarms</span>
       <span class="tab-badge" id="tab-alarms-badge" hidden></span>
+    </a>
+    <a class="tab-item" href="#recipes" id="tab-recipes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z"/>
+        <path d="M5 20.5A2.5 2.5 0 0 0 7.5 21H19v-3M9 7.5h6M9 11h4"/>
+      </svg>
+      <span>Recipes</span>
     </a>
     <a class="tab-item" href="#device" id="tab-device">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -3079,6 +3204,51 @@ MENU_HTML = """<!doctype html>
     });
     if (document.activeElement !== $('sc-rename')) $('sc-rename').value = d.name || '';
     $('sc-remove').hidden = !!d.home;
+    renderTurn();
+  }
+  // Which way the kiosk's screen stands: wide, tall, or either one flipped
+  // over. Only the kiosk can be turned from here (/api/control/rotation);
+  // "Tall" is the picture turned 90°, the way the kitchen screen is mounted.
+  var TURNS = [
+    { id: 'wide', name: 'Wide', to: 'normal' },
+    { id: 'tall', name: 'Tall', to: '90' },
+    { id: 'flip', name: 'Flip over' },
+  ];
+  var FLIPPED = { normal: '180', '180': 'normal', '90': '270', '270': '90' };
+  var turnNow = null;
+  function renderTurn() {
+    var wrap = $('turn-w');
+    wrap.hidden = !(S.screen.home && SC.snapshot);
+    if (wrap.hidden) return;
+    if (turnNow === null) {
+      turnNow = '';
+      call('/api/control/rotation')
+        .then(function (r) { turnNow = r.rotation; renderTurn(); })
+        .catch(function () { turnNow = null; wrap.hidden = true; });
+    }
+    var tall = turnNow === '90' || turnNow === '270';
+    var chips = $('turn');
+    chips.innerHTML = '';
+    TURNS.forEach(function (x) {
+      var on = x.id === 'tall' ? tall : x.id === 'wide' ? !!turnNow && !tall : false;
+      chips.appendChild(el('button', {
+        type: 'button', class: 'chip', text: x.name,
+        role: x.to ? 'radio' : null,
+        'aria-checked': x.to ? (on ? 'true' : 'false') : null,
+        disabled: turnNow ? null : '',
+        onclick: function () {
+          var to = x.to || FLIPPED[turnNow];
+          if (!to || (x.to && on)) return;
+          call('/api/control/rotation', 'PUT', { rotation: to })
+            .then(function (r) {
+              turnNow = r.rotation;
+              renderTurn();
+              toast(S.screen.name + (x.to ? ' is now ' + x.name.toLowerCase() : ' flipped over'));
+            })
+            .catch(failed('turn the screen'));
+        },
+      }));
+    });
   }
   $('find-it').addEventListener('click', function () {
     call('/api/devices/' + encodeURIComponent(S.screen.id) + '/identify', 'POST')
@@ -3223,16 +3393,23 @@ MENU_HTML = """<!doctype html>
     }
     mini.innerHTML = '';
     if (S.screen.grid) return renderMiniGrid(t, mini, S.screen.grid);
-    mini.style.gridTemplateColumns = '';
+    // A wall panel on its side lays its cards out in two columns, the hero
+    // across both (the web app's "tall" tier); otherwise four, the hero 2x2.
+    var tall = isTall(S.screen) && (S.screen.viewport_w || 0) > 1100;
+    var cols = tall ? 2 : 4;
+    mini.style.gridTemplateColumns = tall ? 'repeat(2, minmax(0, 1fr))' : '';
     var hero = heroId();
     var ids = (hero ? [hero] : []).concat(
       ((S.view && S.view.cards) || []).map(function (c) { return c.id; }),
     );
-    var rest = Math.max(0, ids.length - (hero ? 5 : 0));
-    var rows = (hero ? 2 : 0) + Math.ceil(rest / 4) || 1;
+    // Beside a wide screen's hero sit four more cards; a tall one's has none.
+    var rest = Math.max(0, ids.length - (hero ? (tall ? 1 : 5) : 0));
+    var rows = (hero ? 2 : 0) + Math.ceil(rest / cols) || 1;
     mini.style.gridTemplateRows = 'repeat(' + rows + ', minmax(0, 1fr))';
     ids.forEach(function (id, i) {
       var tile = el('div', { class: 'tile' + (i === 0 && hero ? ' hero' : '') });
+      // Two to a row, an odd one out takes the whole last row, as there.
+      if (tall && rest % 2 && i === ids.length - 1) tile.style.gridColumn = 'span 2';
       var colour = t && tileColour(t, id);
       if (colour) tile.style.setProperty('--tile', colour);
       else tile.classList.add('plain');
@@ -3934,6 +4111,11 @@ MENU_HTML = """<!doctype html>
       done: 'Restarting the Raspberry Pi',
       after: 'The screen is off for a minute or two, then comes back on its own.',
     },
+    update: {
+      title: 'Install software update?', path: '/api/control/update',
+      done: 'Updating PinedaDisplay',
+      after: 'The update is running. The display will show the updating screen and restart automatically.',
+    },
   };
 
   function openPin(kind) {
@@ -4017,7 +4199,9 @@ MENU_HTML = """<!doctype html>
       dots.hidden = true;
       pad.hidden = true;
       go.hidden = false;
-      go.textContent = kind === 'display' ? 'Restart the display' : 'Restart the Raspberry Pi';
+      go.textContent = kind === 'display' ? 'Restart the display'
+        : kind === 'update' ? 'Install software update'
+        : 'Restart the Raspberry Pi';
       go.addEventListener('click', function () { if (!busy) send(''); });
       go.focus();
     }
@@ -4374,8 +4558,8 @@ MENU_HTML = """<!doctype html>
   }
 
   // ── Pages & Navigation ─────────────────────────────────────────────
-  var PAGES = ['home', 'alarms', 'themes', 'photos', 'settings', 'device'];
-  var TAB_ORDER = ['themes', 'settings', 'photos', 'alarms', 'device'];
+  var PAGES = ['home', 'alarms', 'recipes', 'themes', 'photos', 'settings', 'device'];
+  var TAB_ORDER = ['themes', 'settings', 'photos', 'alarms', 'recipes', 'device'];
   var current = null;
   var fromHome = false;
   var tabScrolls = {};
@@ -4386,6 +4570,7 @@ MENU_HTML = """<!doctype html>
       'settings': 'tab-settings',
       'photos': 'tab-photos',
       'alarms': 'tab-alarms',
+      'recipes': 'tab-recipes',
       'device': 'tab-device'
     };
     var activeId = tabMap[name] || 'tab-themes';
@@ -4445,6 +4630,7 @@ MENU_HTML = """<!doctype html>
     }
     if (name === 'device') startHealth(); else stopHealth();
     if (name === 'alarms') startAlarms(); else stopAlarms();
+    if (name === 'recipes') startRecipes();
   }
   window.addEventListener('hashchange', route);
 
@@ -5005,6 +5191,167 @@ MENU_HTML = """<!doctype html>
       .then(loadAlarms).then(renderAlarms);
   }
 
+  // ── Recipes (Antigua's recipe box, see pinedaview.recipes) ─────────
+  var RC = { box: null, down: false, view: 'favorites', open: {} };
+  var HEART = '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>';
+  var PLATE = '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="3.5"/>'
+    + '<path d="M3 5v4a1.5 1.5 0 0 0 1.5 1.5V19M4.5 5v3M6 5v4a1.5 1.5 0 0 1-1.5 1.5"/>'
+    + '<path d="M21 19V5c-1.5.8-2.3 3-2.3 6H21"/>';
+
+  function startRecipes() {
+    call('/api/recipes').then(function (box) {
+      RC.box = box;
+      RC.down = false;
+    }).catch(function () { RC.down = true; }).then(renderRecipes);
+  }
+
+  function svg(paths, cls) {
+    return el('span', { class: cls || '', html: '<svg viewBox="0 0 24 24" fill="none" '
+      + 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+      + 'stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>' });
+  }
+
+  function recipeMinutes(m) {
+    if (!m) return '';
+    if (m < 60) return m + ' min';
+    var h = Math.floor(m / 60);
+    return m % 60 ? h + ' hr ' + (m % 60) + ' min' : h + ' hr';
+  }
+
+  function recipeWhen(ts) {
+    var at = new Date(ts * 1000);
+    var today = new Date();
+    var days = Math.round((new Date(today.toDateString()) - new Date(at.toDateString())) / 864e5);
+    var p = clockParts(at.getHours(), at.getMinutes());
+    var time = p.t + ' ' + p.ampm;
+    if (days === 0) return 'Today, ' + time;
+    if (days === 1) return 'Yesterday, ' + time;
+    var opts = { month: 'short', day: 'numeric' };
+    if (at.getFullYear() !== today.getFullYear()) opts.year = 'numeric';
+    return at.toLocaleDateString(undefined, opts);
+  }
+
+  function renderRecipes() {
+    var list = $('rc-list');
+    var empty = $('rc-empty');
+    var fav = RC.view === 'favorites';
+    $('rc-tab-fav').setAttribute('aria-pressed', fav ? 'true' : 'false');
+    $('rc-tab-hist').setAttribute('aria-pressed', fav ? 'false' : 'true');
+    list.innerHTML = '';
+    if (RC.down) {
+      empty.hidden = false;
+      empty.textContent = "Antigua isn't answering, so recipes can't be seen right now. "
+        + 'Try again in a minute.';
+      return;
+    }
+    if (!RC.box) return;
+    var rows = fav ? RC.box.favorites : RC.box.history;
+    empty.hidden = rows.length > 0;
+    empty.textContent = fav
+      ? 'No favorites yet. While a recipe\u2019s open, say \u201cAlexa, favorite this recipe\u201d.'
+      : 'Nothing cooked yet. Ask Antigua for a recipe and it shows up here.';
+    rows.forEach(function (r, i) {
+      var key = RC.view + i;
+      var bits = [];
+      if (fav) {
+        bits = [r.source, recipeMinutes(r.total_min)].filter(Boolean);
+      } else {
+        bits = [recipeWhen(r.at), r.source].filter(Boolean);
+      }
+      var d = el('span', { class: 'rc-d', text: bits.join(' \u00b7 ') });
+      if (!fav && r.cooked) {
+        d.appendChild(document.createTextNode(' \u00b7 '));
+        d.appendChild(el('span', { class: 'ok', text: 'Cooked' }));
+      }
+      var pic = r.image
+        ? el('img', { class: 'rc-pic', src: r.image, alt: '', loading: 'lazy',
+            referrerpolicy: 'no-referrer' })
+        : svg(PLATE, 'rc-pic none');
+      if (r.image) {
+        pic.addEventListener('error', function () { pic.replaceWith(svg(PLATE, 'rc-pic none')); });
+      }
+      var heart = el('button', {
+        type: 'button', class: 'rc-heart', 'aria-pressed': r.favorite ? 'true' : 'false',
+        'aria-label': (r.favorite ? 'Unfavorite ' : 'Favorite ') + r.title,
+        html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+          + 'stroke-linejoin="round" aria-hidden="true">' + HEART + '</svg>',
+        onclick: function () { favoriteRecipe(r, !r.favorite); },
+      });
+      var opened = !!RC.open[key];
+      var head = el('div', { class: 'rc-head' }, [
+        el('button', {
+          type: 'button', class: 'rc-open', 'aria-expanded': opened ? 'true' : 'false',
+          onclick: function () { RC.open[key] = !RC.open[key]; renderRecipes(); },
+        }, [pic, el('span', { class: 'rc-words' }, [
+          el('span', { class: 'rc-title', text: r.title }), d,
+        ])]),
+        heart,
+      ]);
+      var li = el('li', { class: 'rc' }, [head]);
+      if (opened) li.appendChild(recipeBody(r));
+      list.appendChild(li);
+    });
+  }
+
+  function recipeBody(r) {
+    var stats = [];
+    if (r.rating) {
+      stats.push('\u2605 ' + r.rating.toFixed(1)
+        + (r.rating_count ? ' (' + r.rating_count.toLocaleString() + ')' : ''));
+    }
+    if (r.total_min) stats.push(recipeMinutes(r.total_min));
+    if (r.servings) stats.push(r.servings.charAt(0).toUpperCase() + r.servings.slice(1));
+    var actions = [el('button', {
+      type: 'button', class: 'q', text: 'Show on the display',
+      onclick: function () { showRecipe(r); },
+    })];
+    if (r.url) {
+      actions.push(el('a', {
+        class: 'q', href: r.url, target: '_blank', rel: 'noopener noreferrer',
+        text: 'Open the full recipe \u2197',
+      }));
+    }
+    var body = el('div', { class: 'rc-body' }, [
+      stats.length ? el('div', { class: 'rc-stats' },
+        stats.map(function (t) { return el('span', { text: t }); })) : null,
+      el('div', { class: 'rc-actions' }, actions),
+      el('h3', { text: 'Ingredients' }),
+      el('ul', {}, r.ingredients.map(function (t) { return el('li', { text: t }); })),
+      el('h3', { text: 'Steps' }),
+      el('ol', {}, r.steps.map(function (t) { return el('li', { text: t }); })),
+    ]);
+    if (r.url) {
+      var host = r.url.replace(/^https?:\\/\\/(www\\.)?/, '').split('/')[0];
+      body.appendChild(el('p', { class: 'rc-src' }, [
+        document.createTextNode('From ' + (r.source || host) + ': '),
+        el('a', { href: r.url, target: '_blank', rel: 'noopener noreferrer', text: host }),
+      ]));
+    }
+    return body;
+  }
+
+  function favoriteRecipe(r, on) {
+    call('/api/recipes/' + encodeURIComponent(r.id) + '/favorite', on ? 'POST' : 'DELETE')
+      .then(function () {
+        toast(on ? 'Saved to favorites' : 'Taken out of favorites');
+        startRecipes();
+      })
+      .catch(failed(on ? 'save it' : 'take it out'));
+  }
+
+  function showRecipe(r) {
+    call('/api/recipes/' + encodeURIComponent(r.id) + '/show', 'POST')
+      .then(function (res) {
+        toast(res && res.shown ? 'On the display. Say \u201cAlexa, I\u2019m ready\u201d.'
+          : "Opened, but there's no display to show it on");
+        startRecipes();
+      })
+      .catch(failed('put it on the display'));
+  }
+
+  $('rc-tab-fav').addEventListener('click', function () { RC.view = 'favorites'; renderRecipes(); });
+  $('rc-tab-hist').addEventListener('click', function () { RC.view = 'history'; renderRecipes(); });
+
   $('al-add-alarm').addEventListener('click', function () { openAlarm('alarm'); });
   $('al-add-reminder').addEventListener('click', function () { openAlarm('reminder'); });
 
@@ -5236,6 +5583,22 @@ MENU_HTML = """<!doctype html>
       // Quiet when all is well; only a problem earns a line on the button.
       $('hub-device').textContent = stale ? "Can't hear the screen"
         : needsLook(pi) || needsLook(sys.server) ? 'Needs a look' : '';
+      call('/api/system/update').then(function (up) {
+        if (!up) return;
+        var tEl = $('up-title'), sEl = $('up-sub');
+        if (tEl) {
+          tEl.textContent = up.state === 'updating' ? 'Updating… (' + (up.step || 'in progress') + ')'
+            : up.state === 'checking' ? 'Checking for updates…'
+            : 'Update software';
+        }
+        if (sEl) {
+          var details = [];
+          if (up.current_version) details.push('v' + up.current_version);
+          if (up.current_commit) details.push(up.current_commit);
+          if (up.message) details.push(up.message);
+          sEl.textContent = details.join(' · ');
+        }
+      }).catch(function () {});
     }).catch(function () {});
   }
 

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from pinedaview.broadcast import Broadcaster
 
@@ -111,6 +111,14 @@ class ImageItem(BaseModel):
     """Width / height ratio for layout packing."""
 
 
+class ImageGroup(BaseModel):
+    """One side of a comparison ("Fuji apples" vs "Honeycrisp apples")."""
+
+    label: str
+    ids: list[str]
+    """Which of the card's images are on this side, in order."""
+
+
 class ImageSearchTakeover(BaseModel):
     """A visual collage of image search results, tiled in an interlocking
     mosaic layout with letter badges (A, B, C...) for voice-guided inspection."""
@@ -120,12 +128,67 @@ class ImageSearchTakeover(BaseModel):
     images: list[ImageItem]
     highlight: str | None = None
     """Currently highlighted image id ('A', 'B', etc.), or None."""
+    groups: list[ImageGroup] = Field(default_factory=list)
+    """For a comparison: the images split into labelled sides, shown as
+    columns. Empty for a plain search."""
+
+    @model_validator(mode="after")
+    def _groups_name_images(self) -> ImageSearchTakeover:
+        known = {i.id for i in self.images}
+        for g in self.groups:
+            missing = [i for i in g.ids if i not in known]
+            if missing:
+                raise ValueError(f"group {g.label!r} names unknown images {missing}")
+        return self
+
+
+class RecipeChoice(BaseModel):
+    """One recipe to choose from: its letter, what it is, and its photos."""
+
+    id: str
+    """'A', 'B', 'C': what's said to pick it."""
+    title: str
+    source: str = ""
+    """The site: 'Allrecipes'."""
+    rating: float = Field(default=0, ge=0, le=5)
+    """Stars out of 5; 0 for none."""
+    rating_count: int = Field(default=0, ge=0)
+    total_min: int = Field(default=0, ge=0)
+    servings: str = ""
+    """'serves 4', 'makes 1 loaf'."""
+    images: list[str] = []
+    """Which of the card's images are this recipe's, best first."""
+
+
+class RecipeChoicesTakeover(BaseModel):
+    """A few recipes for one dish side by side, each with photos from its
+    own page, to pick one by its letter ("which one would you like? A, B,
+    or C?"). Picking one replaces this with that recipe's card."""
+
+    kind: Literal["recipe_choices"] = "recipe_choices"
+    dish: str
+    """What was asked for: 'chia seed pudding'."""
+    images: list[ImageItem]
+    choices: list[RecipeChoice] = Field(min_length=1, max_length=4)
+    highlight: str | None = None
+    """A choice's letter to light up, or None."""
+
+    @model_validator(mode="after")
+    def _choices_name_images(self) -> RecipeChoicesTakeover:
+        known = {i.id for i in self.images}
+        for c in self.choices:
+            missing = [i for i in c.images if i not in known]
+            if missing:
+                raise ValueError(f"choice {c.id!r} names unknown images {missing}")
+        return self
 
 
 ALARM_SECONDS = 600
 """How long a ringing alarm stays up if nobody dismisses it."""
 
-Card = RecipeTakeover | CameraTakeover | AlarmTakeover | ImageSearchTakeover
+Card = RecipeTakeover | CameraTakeover | AlarmTakeover | ImageSearchTakeover | RecipeChoicesTakeover
+PictureCard = ImageSearchTakeover | RecipeChoicesTakeover
+"""Cards whose pictures this server fetches for the screen (image_proxy)."""
 
 
 class TakeoverRequest(BaseModel):
@@ -146,7 +209,11 @@ class TakeoverUpdate(BaseModel):
     caption: str | None = None
     """A camera's caption (who's at the door, once known)."""
     highlight: str | None = None
-    """For an image search takeover: which image is highlighted ('A', 'B'...)."""
+    """For an image search takeover: which image is highlighted ('A', 'B'...);
+    for recipe choices, which choice."""
+    seconds: float | None = Field(default=None, gt=0, le=_MAX_SECONDS)
+    """Keep the card up this long from now instead of its time left (a new
+    picture opened on a collage gets its own time)."""
 
 
 class Takeover(BaseModel):
@@ -156,11 +223,7 @@ class Takeover(BaseModel):
 
 
 def _same_camera(a: Card, b: CameraTakeover) -> bool:
-    return (
-        isinstance(a, CameraTakeover)
-        and a.camera == b.camera
-        and a.pip_camera == b.pip_camera
-    )
+    return isinstance(a, CameraTakeover) and a.camera == b.camera and a.pip_camera == b.pip_camera
 
 
 def _with(card: Card, fields: dict[str, object]) -> Card:
@@ -226,9 +289,14 @@ class TakeoverService:
         if cur is None:
             return None
         sent = change.model_dump(exclude_unset=True)
+        seconds = sent.pop("seconds", None)
         # Lists can't be None on the card; a null sent for one clears it.
         fields = {
-            k: ([] if v is None and k not in ("stage", "current_step", "caption") else v)
+            k: (
+                []
+                if v is None and k not in ("stage", "current_step", "caption", "highlight")
+                else v
+            )
             for k, v in sent.items()
         }
         if fields.get("caption") is None:
@@ -237,9 +305,17 @@ class TakeoverService:
             card, left, total = self._aside
             reading = {k: v for k, v in fields.items() if k != "caption"}
             if reading:
-                self._aside = (_with(card, reading), left, total)
+                card = _with(card, reading)
+            if seconds is not None:  # the time is the card's, not the camera's
+                left = timedelta(seconds=seconds)
+                total = max(total, left)
+            self._aside = (card, left, total)
+            seconds = None
         # Fields for the other kind of card are ignored.
-        self._current = cur.model_copy(update={"card": _with(cur.card, fields)})
+        update: dict[str, object] = {"card": _with(cur.card, fields)}
+        if seconds is not None:
+            update["expires_at"] = datetime.now(UTC) + timedelta(seconds=seconds)
+        self._current = cur.model_copy(update=update)
         self._broadcaster.publish({"type": "takeover", "action": "update"})
         return self._current
 

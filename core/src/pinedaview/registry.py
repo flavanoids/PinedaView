@@ -123,6 +123,7 @@ _MIGRATIONS = (
     "ALTER TABLE devices ADD COLUMN kind TEXT",
     "ALTER TABLE devices ADD COLUMN popups TEXT",
     "ALTER TABLE devices ADD COLUMN frame_inset INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE devices ADD COLUMN night_weekend_end TEXT",
 )
 
 # Earlier layouts kept per screen for "restore an earlier layout".
@@ -348,7 +349,10 @@ class Device(BaseModel):
     night_weekend_start: str = "02:00"
     """When it starts before a Saturday or Sunday morning."""
     night_end: str = "05:00"
-    """When the dashboard comes back, every morning."""
+    """When the dashboard comes back on a weekday morning (and at the weekend,
+    unless night_weekend_end says otherwise)."""
+    night_weekend_end: str | None = None
+    """When it comes back on a Saturday or Sunday morning; None = night_end."""
     peek_s: int = 60
     """How long a tap on the night clock shows the dashboard."""
     dim_start: str | None = None
@@ -776,6 +780,7 @@ class Registry:
             "night_weeknight_start",
             "night_weekend_start",
             "night_end",
+            "night_weekend_end",
             "peek_s",
             "dim_start",
             "dim_end",
@@ -806,6 +811,7 @@ class Registry:
             "follow",
             "blackout_start",
             "blackout_end",
+            "night_weekend_end",
             "dim_start",
             "dim_end",
             "night_clock_font",
@@ -1035,6 +1041,7 @@ _DEVICE_SCHEDULE_COLS = (
     "night_weeknight_start",
     "night_weekend_start",
     "night_end",
+    "night_weekend_end",
     "peek_s",
     "dim_start",
     "dim_end",

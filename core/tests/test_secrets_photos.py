@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from pinedaview.photos import DuplicatePhotoError, PhotoStore, TooLongError
 from pinedaview.secrets import SecretStore
@@ -163,6 +164,25 @@ def test_photo_subject_path_and_cleanup(tmp_path: Path) -> None:
     assert not subject.exists()
 
 
+def test_photo_mask_is_a_small_copy_of_the_cutout(tmp_path: Path) -> None:
+    store = PhotoStore(tmp_path / "photos")
+    store.add("sample.jpg", _jpeg((400, 300)))
+    assert store.mask("sample.jpg") is None
+    cutout = Image.new("RGBA", (400, 300), (0, 0, 0, 0))
+    cutout.paste((255, 255, 255, 255), (200, 0, 400, 300))
+    cutout.save(store.subject_path("sample.jpg"), "WEBP")
+    path = store.mask("sample.jpg")
+    assert path is not None
+    with Image.open(path) as mask:
+        assert mask.size == (96, 72)
+        alpha = mask.getchannel("A")
+        assert alpha.getpixel((10, 36)) == 0
+        assert alpha.getpixel((80, 36)) == 255
+    assert store.mask("sample.jpg") == path  # cached
+    assert store.delete("sample.jpg") is True
+    assert not path.exists()
+
+
 def test_photo_delete_purges_all_versions_and_derivatives(tmp_path: Path) -> None:
     store = PhotoStore(tmp_path / "photos")
     photo = store.add("vacation.png", _png())
@@ -267,3 +287,25 @@ def test_photo_colours_and_tint(tmp_path: Path) -> None:
     (tmp_path / "photos/.cache/metadata.json").write_text(json.dumps(meta))
     assert store.backfill_colours() == 1
     assert store.all()[0].tint == red.tint
+
+
+def test_photo_aspect(tmp_path: Path) -> None:
+    from PIL import Image
+
+    store = PhotoStore(tmp_path / "photos")
+    wide = store.add("wide.jpg", _solid((90, 90, 200)))
+    assert wide.aspect == round(64 / 48, 3)
+    # Stood on its side by EXIF orientation 6: seen tall.
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    out = io.BytesIO()
+    Image.new("RGB", (64, 48), (20, 160, 90)).save(out, "JPEG", exif=exif.tobytes())
+    assert store.add("side.jpg", out.getvalue()).aspect == round(48 / 64, 3)
+    # Photos from before the shape was kept get it from the backfill.
+    meta_path = tmp_path / "photos/.cache/metadata.json"
+    meta = json.loads(meta_path.read_text())
+    del meta["wide.jpg"]["aspect"]
+    meta_path.write_text(json.dumps(meta))
+    assert store.backfill_aspects() == 1
+    assert store.backfill_aspects() == 0
+    assert {p.name: p.aspect for p in store.all()}["wide.jpg"] == wide.aspect

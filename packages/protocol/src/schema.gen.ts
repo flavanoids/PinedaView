@@ -474,6 +474,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/rotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Control Rotation */
+        get: operations["control_rotation_api_control_rotation_get"];
+        /** Control Rotate */
+        put: operations["control_rotate_api_control_rotation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/snapshot": {
         parameters: {
             query?: never;
@@ -928,6 +946,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/photos/{name}/mask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Photo Mask */
+        get: operations["get_photo_mask_api_photos__name__mask_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/photos/{name}/motion": {
         parameters: {
             query?: never;
@@ -1047,6 +1082,58 @@ export interface paths {
         head?: never;
         /** Update Profile */
         patch: operations["update_profile_api_profiles__profile_id__patch"];
+        trace?: never;
+    };
+    "/api/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recipe Box */
+        get: operations["recipe_box_api_recipes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{recipe_id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Favorite Recipe */
+        post: operations["favorite_recipe_api_recipes__recipe_id__favorite_post"];
+        /** Unfavorite Recipe */
+        delete: operations["unfavorite_recipe_api_recipes__recipe_id__favorite_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{recipe_id}/show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Show Recipe */
+        post: operations["show_recipe_api_recipes__recipe_id__show_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/secrets": {
@@ -1170,6 +1257,23 @@ export interface paths {
         head?: never;
         /** Update Takeover */
         patch: operations["update_takeover_api_takeover_patch"];
+        trace?: never;
+    };
+    "/api/takeover/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Takeover Image */
+        get: operations["takeover_image_api_takeover_images__image_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/themes": {
@@ -1863,6 +1967,8 @@ export interface components {
              * @default 05:00
              */
             night_end: string;
+            /** Night Weekend End */
+            night_weekend_end?: string | null;
             /**
              * Night Weekend Start
              * @default 02:00
@@ -1957,6 +2063,8 @@ export interface components {
             night_clock_tint?: string | null;
             /** Night End */
             night_end?: string | null;
+            /** Night Weekend End */
+            night_weekend_end?: string | null;
             /** Night Weekend Start */
             night_weekend_start?: string | null;
             /** Night Weeknight Start */
@@ -1980,6 +2088,70 @@ export interface components {
          * @enum {string}
          */
         DisplayState: "idle" | "playing" | "countdown" | "alert";
+        /** FavoriteRecipe */
+        FavoriteRecipe: {
+            /** Added */
+            added: number;
+            /**
+             * Dish
+             * @default
+             */
+            dish: string;
+            /**
+             * Favorite
+             * @default false
+             */
+            favorite: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Image
+             * @default
+             */
+            image: string;
+            /**
+             * Ingredients
+             * @default []
+             */
+            ingredients: string[];
+            /**
+             * Rating
+             * @default 0
+             */
+            rating: number;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
+            /**
+             * Servings
+             * @default
+             */
+            servings: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
+            /** Title */
+            title: string;
+            /**
+             * Total Min
+             * @default 0
+             */
+            total_min: number;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+        };
         /**
          * Grid
          * @description A hand-placed layout from the layout builder: each card snapped to a
@@ -2094,6 +2266,16 @@ export interface components {
             /** Uptime S */
             uptime_s?: number | null;
         };
+        /**
+         * ImageGroup
+         * @description One side of a comparison ("Fuji apples" vs "Honeycrisp apples").
+         */
+        ImageGroup: {
+            /** Ids */
+            ids: string[];
+            /** Label */
+            label: string;
+        };
         /** ImageItem */
         ImageItem: {
             /**
@@ -2129,6 +2311,8 @@ export interface components {
          *     mosaic layout with letter badges (A, B, C...) for voice-guided inspection.
          */
         ImageSearchTakeover: {
+            /** Groups */
+            groups?: components["schemas"]["ImageGroup"][];
             /** Highlight */
             highlight?: string | null;
             /** Images */
@@ -2227,6 +2411,8 @@ export interface components {
         };
         /** Photo */
         Photo: {
+            /** Aspect */
+            aspect?: number | null;
             /**
              * Colours
              * @default []
@@ -2497,6 +2683,89 @@ export interface components {
             /** Wallpaper Everywhere */
             wallpaper_everywhere?: boolean | null;
         };
+        /** RecipeBox */
+        RecipeBox: {
+            /** Favorites */
+            favorites: components["schemas"]["FavoriteRecipe"][];
+            /** History */
+            history: components["schemas"]["RecipeVisit"][];
+        };
+        /**
+         * RecipeChoice
+         * @description One recipe to choose from: its letter, what it is, and its photos.
+         */
+        RecipeChoice: {
+            /** Id */
+            id: string;
+            /**
+             * Images
+             * @default []
+             */
+            images: string[];
+            /**
+             * Rating
+             * @default 0
+             */
+            rating: number;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
+            /**
+             * Servings
+             * @default
+             */
+            servings: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /** Title */
+            title: string;
+            /**
+             * Total Min
+             * @default 0
+             */
+            total_min: number;
+        };
+        /**
+         * RecipeChoicesTakeover
+         * @description A few recipes for one dish side by side, each with photos from its
+         *     own page, to pick one by its letter ("which one would you like? A, B,
+         *     or C?"). Picking one replaces this with that recipe's card.
+         */
+        RecipeChoicesTakeover: {
+            /** Choices */
+            choices: components["schemas"]["RecipeChoice"][];
+            /** Dish */
+            dish: string;
+            /** Highlight */
+            highlight?: string | null;
+            /** Images */
+            images: components["schemas"]["ImageItem"][];
+            /**
+             * Kind
+             * @default recipe_choices
+             * @constant
+             */
+            kind: "recipe_choices";
+        };
+        /** RecipeFavorite */
+        RecipeFavorite: {
+            /** Favorite */
+            favorite: boolean;
+            /** Id */
+            id: string;
+        };
+        /** RecipeShown */
+        RecipeShown: {
+            /** Opened */
+            opened: string;
+            /** Shown */
+            shown: boolean;
+        };
         /**
          * RecipeTakeover
          * @description A recipe. Ingredient indexes count lines across the groups, in the
@@ -2560,6 +2829,80 @@ export interface components {
              */
             total_min: number;
         };
+        /** RecipeVisit */
+        RecipeVisit: {
+            /** At */
+            at: number;
+            /**
+             * By
+             * @default
+             */
+            by: string;
+            /**
+             * Cooked
+             * @default false
+             */
+            cooked: boolean;
+            /**
+             * Dish
+             * @default
+             */
+            dish: string;
+            /**
+             * Favorite
+             * @default false
+             */
+            favorite: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Image
+             * @default
+             */
+            image: string;
+            /**
+             * Ingredients
+             * @default []
+             */
+            ingredients: string[];
+            /**
+             * Rating
+             * @default 0
+             */
+            rating: number;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
+            /**
+             * Servings
+             * @default
+             */
+            servings: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
+            /** Title */
+            title: string;
+            /**
+             * Total Min
+             * @default 0
+             */
+            total_min: number;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+        };
         /** ReplaceRequest */
         ReplaceRequest: {
             /** Old */
@@ -2585,6 +2928,18 @@ export interface components {
             screens: number;
             /** Skipped Screens */
             skipped_screens: number;
+        };
+        /**
+         * RotationBody
+         * @description The kiosk screen's direction: "normal", or the picture turned 90,
+         *     180 or 270 degrees (wlr-randr's names).
+         */
+        RotationBody: {
+            /**
+             * Rotation
+             * @enum {string}
+             */
+            rotation: "normal" | "90" | "180" | "270";
         };
         /**
          * ScreenLook
@@ -2640,6 +2995,8 @@ export interface components {
              * @default 05:00
              */
             night_end: string;
+            /** Night Weekend End */
+            night_weekend_end?: string | null;
             /**
              * Night Weekend Start
              * @default 02:00
@@ -2796,6 +3153,8 @@ export interface components {
              * @default 05:00
              */
             night_end: string;
+            /** Night Weekend End */
+            night_weekend_end?: string | null;
             /**
              * Night Weekend Start
              * @default 02:00
@@ -2960,6 +3319,8 @@ export interface components {
             kind: "timer" | "alarm" | "reminder";
             /** Label */
             label: string;
+            /** Name */
+            name?: string | null;
         };
         /** SystemView */
         SystemView: {
@@ -2969,7 +3330,7 @@ export interface components {
         /** Takeover */
         Takeover: {
             /** Card */
-            card: components["schemas"]["RecipeTakeover"] | components["schemas"]["CameraTakeover"] | components["schemas"]["AlarmTakeover"] | components["schemas"]["ImageSearchTakeover"];
+            card: components["schemas"]["RecipeTakeover"] | components["schemas"]["CameraTakeover"] | components["schemas"]["AlarmTakeover"] | components["schemas"]["ImageSearchTakeover"] | components["schemas"]["RecipeChoicesTakeover"];
             /**
              * Expires At
              * Format: date-time
@@ -2984,7 +3345,7 @@ export interface components {
         /** TakeoverRequest */
         TakeoverRequest: {
             /** Card */
-            card: components["schemas"]["RecipeTakeover"] | components["schemas"]["CameraTakeover"] | components["schemas"]["AlarmTakeover"] | components["schemas"]["ImageSearchTakeover"];
+            card: components["schemas"]["RecipeTakeover"] | components["schemas"]["CameraTakeover"] | components["schemas"]["AlarmTakeover"] | components["schemas"]["ImageSearchTakeover"] | components["schemas"]["RecipeChoicesTakeover"];
             /**
              * Seconds
              * @default 120
@@ -3007,6 +3368,8 @@ export interface components {
             current_step?: number | null;
             /** Highlight */
             highlight?: string | null;
+            /** Seconds */
+            seconds?: number | null;
             /** Skipped */
             skipped?: number[] | null;
             /** Stage */
@@ -3088,6 +3451,8 @@ export interface components {
             kind: "timer" | "alarm" | "reminder";
             /** Label */
             label: string;
+            /** Name */
+            name?: string | null;
             /** Source */
             source?: string | null;
         };
@@ -3104,6 +3469,8 @@ export interface components {
              * @default Timer
              */
             label: string;
+            /** Name */
+            name?: string | null;
             /** Seconds */
             seconds: number;
         };
@@ -4187,6 +4554,59 @@ export interface operations {
             };
         };
     };
+    control_rotation_api_control_rotation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotationBody"];
+                };
+            };
+        };
+    };
+    control_rotate_api_control_rotation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotationBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     control_snapshot_api_control_snapshot_get: {
         parameters: {
             query?: never;
@@ -5093,6 +5513,37 @@ export interface operations {
             };
         };
     };
+    get_photo_mask_api_photos__name__mask_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_photo_motion_api_photos__name__motion_get: {
         parameters: {
             query?: never;
@@ -5354,6 +5805,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recipe_box_api_recipes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeBox"];
+                };
+            };
+        };
+    };
+    favorite_recipe_api_recipes__recipe_id__favorite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeFavorite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfavorite_recipe_api_recipes__recipe_id__favorite_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeFavorite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    show_recipe_api_recipes__recipe_id__show_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeShown"];
                 };
             };
             /** @description Validation Error */
@@ -5634,6 +6198,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Takeover"] | null;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    takeover_image_api_takeover_images__image_id__get: {
+        parameters: {
+            query?: {
+                size?: "thumb" | "full";
+            };
+            header?: never;
+            path: {
+                image_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

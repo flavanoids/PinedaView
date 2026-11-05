@@ -297,6 +297,11 @@
     min-height: 50cqi;
     border-radius: inherit;
   }
+  /* A panel that fills its screen sets the row's height, which on a tall
+     screen is less than this floor: fit the row instead. */
+  :global(.stage.fills) .stack {
+    min-height: 0;
+  }
   .layer {
     grid-area: 1 / 1;
     position: relative;

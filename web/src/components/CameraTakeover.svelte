@@ -46,11 +46,9 @@
   const percent = $derived(done ? 100 : loadGuess(now - since));
   let played = $state(false); // the video has shown a picture at least once
 
-  // Behind the ring: the camera's last snapshot (the home-cams card's
-  // photo), blurred and dimmed, at the video's own framing, so the live
-  // picture comes into focus over it rather than cutting in from black.
-  // Blurred once on a small canvas and stretched: a CSS blur over the
-  // whole screen would re-render on every frame of the balloon on the Pi.
+  // Behind the ring: the camera's latest snapshot (from HA's event push or
+  // recent capture), shown crisp and full-frame so the user sees who arrived
+  // immediately in <500ms rather than waiting 4-8s for the live video stream.
   let backdrop: HTMLCanvasElement | undefined = $state();
   let hasBackdrop = $state(false);
   $effect(() => {
@@ -60,16 +58,15 @@
     img.onload = () => {
       const ctx = c.getContext("2d");
       if (!ctx || !img.naturalWidth) return;
-      c.width = 192;
-      c.height = Math.round((192 * img.naturalHeight) / img.naturalWidth);
-      ctx.filter = "blur(3px) brightness(0.5) saturate(0.85)";
-      // A little oversize, so the blur doesn't pull dark in at the edges.
-      ctx.drawImage(img, -8, -8, c.width + 16, c.height + 16);
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       hasBackdrop = true;
     };
-    // A new URL every 10 minutes: fresh enough for a backdrop, and the
-    // kiosk's cache serves the rest.
-    img.src = `/api/home-cams/${encodeURIComponent(card.camera)}.jpg?v=${Math.floor(Date.now() / 600_000)}`;
+    // Fresh snapshot cache-buster: uses exact takeover shown_at timestamp or now,
+    // ensuring the fresh event snapshot displays immediately.
+    const v = Date.parse(takeover.shown_at) || Date.now();
+    img.src = `/api/home-cams/${encodeURIComponent(card.camera)}.jpg?v=${v}`;
     return () => (img.onload = null);
   });
   $effect(() => {
@@ -132,13 +129,13 @@
     img.onload = () => {
       const ctx = c.getContext("2d");
       if (!ctx || !img.naturalWidth) return;
-      c.width = 192;
-      c.height = Math.round((192 * img.naturalHeight) / img.naturalWidth);
-      ctx.filter = "blur(3px) brightness(0.5) saturate(0.85)";
-      ctx.drawImage(img, -8, -8, c.width + 16, c.height + 16);
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       hasPipBackdrop = true;
     };
-    img.src = `/api/home-cams/${encodeURIComponent(pipCam)}.jpg?v=${Math.floor(Date.now() / 600_000)}`;
+    const v = Date.parse(takeover.shown_at) || Date.now();
+    img.src = `/api/home-cams/${encodeURIComponent(pipCam)}.jpg?v=${v}`;
     return () => (img.onload = null);
   });
   $effect(() => {
@@ -184,6 +181,7 @@
 
 <div
   class="camera"
+  class:paired={!!card.pip_camera}
   role="dialog"
   aria-modal="true"
   aria-label={`Camera: ${card.title || card.camera}`}
@@ -291,8 +289,8 @@
         </div>
       {/if}
       <p class="pip-tag">
-        {#if pipPlayed}<span class="dot" aria-hidden="true"></span><span class="live"
-            >Live</span
+        {#if pipPlayed}<span class="dot" aria-hidden="true"></span><span
+            class="live">Live</span
           >{/if}<span class="title">{card.pip_title || card.pip_camera}</span>
       </p>
     </div>
@@ -444,7 +442,9 @@
   /* ── Picture in Picture: garage camera in the top right corner ── */
   .pip {
     position: absolute;
-    top: max(var(--space-4), env(safe-area-inset-top));
+    top: calc(
+      max(var(--space-4), env(safe-area-inset-top)) + var(--frame-y, 0px)
+    );
     right: calc(
       max(var(--space-4), env(safe-area-inset-right)) + var(--frame-x, 0px)
     );
@@ -571,7 +571,9 @@
 
   .tag {
     position: absolute;
-    top: max(var(--space-4), env(safe-area-inset-top));
+    top: calc(
+      max(var(--space-4), env(safe-area-inset-top)) + var(--frame-y, 0px)
+    );
     left: calc(
       max(var(--space-4), env(safe-area-inset-left)) + var(--frame-x, 0px)
     );
@@ -619,7 +621,7 @@
     bottom: 0;
     margin: 0;
     padding: var(--space-6, 4rem) calc(var(--space-5) + var(--frame-x, 0px))
-      var(--space-5);
+      calc(var(--space-5) + var(--frame-y, 0px));
     background: linear-gradient(to top, rgb(0 0 0 / 0.7), transparent);
     font-size: calc(clamp(1.75rem, min(2.6vw, 4vh), 3.25rem) * var(--ui-scale));
     font-weight: var(--weight-label);
@@ -629,6 +631,37 @@
   }
   .caption.pending {
     color: rgb(255 255 255 / 0.75);
+  }
+
+  /* A tall screen: the picture keeps clear of the frame's lip, and with a
+     second camera the two stack — the second one the screen's full width
+     along the bottom, the caption just above it — rather than a corner
+     inset over a letterboxed picture. */
+  @media (orientation: portrait) {
+    .camera > video,
+    .camera > .backdrop {
+      top: var(--frame-y, 0px);
+      bottom: var(--frame-y, 0px);
+      height: auto;
+    }
+    .camera.paired {
+      --pip-h: calc((100vw - 2 * var(--space-4)) * 9 / 16);
+      --pip-room: calc(var(--pip-h) + 2 * var(--space-4));
+    }
+    .camera.paired > video,
+    .camera.paired > .backdrop {
+      bottom: calc(var(--frame-y, 0px) + var(--pip-room));
+    }
+    .camera.paired .pip {
+      top: auto;
+      bottom: calc(var(--frame-y, 0px) + var(--space-4));
+      left: var(--space-4);
+      right: var(--space-4);
+      width: auto;
+    }
+    .camera.paired .caption {
+      bottom: var(--pip-room);
+    }
   }
   @media (prefers-reduced-motion: no-preference) {
     .caption.pending {
@@ -646,7 +679,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--frame-y, 0px);
     height: calc(0.3rem * var(--ui-scale));
     background: var(--accent);
     transform-origin: left center;

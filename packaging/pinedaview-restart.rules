@@ -14,7 +14,7 @@
 //            /etc/polkit-1/rules.d/49-pineda-web.rules
 //          sudo systemctl restart polkit
 polkit.addRule(function (action, subject) {
-  if (subject.user != "pineda" && subject.user != \"kiosk\") return;
+  if (subject.user != "pineda" && subject.user != "kiosk") return;
 
   if (action.id == "org.freedesktop.login1.reboot") {
     return polkit.Result.YES;

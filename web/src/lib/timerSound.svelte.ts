@@ -87,7 +87,8 @@ let known = new Map<string, number>();
  * Called with the timers on screen each time they change. One that was here
  * and is now gone at (or past) its due time ran out rather than being
  * cancelled, so play the chime — once, however many finished together.
- * Alarms and reminders take over the screen instead and aren't chimed.
+ * Alarms and reminders take over the screen instead and aren't chimed, and
+ * neither are Antigua's timers: it rings those itself.
  */
 export function chimeForFinishedTimers(
   timers: unknown,
@@ -96,7 +97,7 @@ export function chimeForFinishedTimers(
   const list = Array.isArray(timers) ? (timers as Timer[]) : [];
   const current = new Map(
     list
-      .filter((t) => (t.kind ?? "timer") === "timer")
+      .filter((t) => (t.kind ?? "timer") === "timer" && t.source !== "antigua")
       .map((t) => [t.id, Date.parse(t.fires_at)] as const),
   );
   let finished = false;

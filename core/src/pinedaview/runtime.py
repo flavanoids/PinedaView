@@ -18,6 +18,7 @@ from pinedaview.config import Settings
 from pinedaview.connections import load_connections
 from pinedaview.google_oauth import PendingAuthStore
 from pinedaview.household import HouseholdPrefs, load_household, save_household
+from pinedaview.image_proxy import ImageProxy
 from pinedaview.mqtt import MqttBridge
 from pinedaview.now_showing import NowShowingStore
 from pinedaview.photos import PhotoStore
@@ -68,6 +69,7 @@ class Runtime:
     wallpaper: WallpaperStore
     cards: CardRegistry
     http: httpx.AsyncClient
+    images: ImageProxy
     card_settings: dict[str, dict[str, Any]] = field(default_factory=dict)
     household: HouseholdPrefs = field(default_factory=HouseholdPrefs)
     provider_override: list[Provider] | None = None
@@ -190,6 +192,7 @@ def build_runtime(
         wallpaper=wallpaper,
         cards=registry,
         http=http,
+        images=ImageProxy(takeover),
         card_settings=_load_card_settings(settings, registry),
         household=household,
         provider_override=providers,

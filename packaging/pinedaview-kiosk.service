@@ -4,9 +4,10 @@
 # Install manually per device — device hardware, GPU, and the local user
 # vary too much to package generically:
 #
-#   sudo install -m 644 packaging/pineda-kiosk.service /etc/systemd/system/
+#   sudo install -m 755 packaging/pinedaview-kiosk-launch.sh /usr/local/bin/pinedaview-kiosk-launch
+#   sudo install -m 644 packaging/pinedaview-kiosk.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now pineda-kiosk.service
+#   sudo systemctl enable --now pinedaview-kiosk.service
 #
 # Adjust User/Group and XDG_RUNTIME_DIR's uid to match the target account.
 #
@@ -18,9 +19,9 @@
 # `localhost` only means "this Pi" to the Pi itself; a phone that scans a
 # QR built from it is asking its own network for something that isn't there.
 [Unit]
-Description=PinedaDisplay kiosk display (cage + Chromium)
-After=pineda-web.service getty@tty1.service systemd-user-sessions.service
-Wants=pineda-web.service
+Description=PinedaView kiosk display (cage + Chromium)
+After=pinedaview.service getty@tty1.service systemd-user-sessions.service
+Wants=pinedaview.service
 Conflicts=getty@tty1.service
 
 [Service]
@@ -58,7 +59,7 @@ ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do curl -sf http://localhost:8090
 # `?pi=1` seeds kiosk provisioning on first paint: floors motion tier to lite,
 # drops heavy backdrop-filter/glass effects, and suppresses the cursor
 # unconditionally (`cursor: none !important`).
-ExecStart=/usr/bin/cage -- /usr/lib/chromium/chromium \
+ExecStart=/usr/bin/cage -- /usr/local/bin/pinedaview-kiosk-launch /usr/lib/chromium/chromium \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \

@@ -47,8 +47,17 @@ from pinedaview.connect_page import (
     render_not_configured,
     render_picker,
 )
-from pinedaview.control import ControlError, PinGate, restart_display, restart_system, snapshot
+from pinedaview.control import (
+    ControlError,
+    PinGate,
+    restart_display,
+    restart_system,
+    rotate,
+    rotation,
+    snapshot,
+)
 from pinedaview.household import DateStyle, GuestUploads, HouseholdPrefs, TimeFormat
+from pinedaview.image_proxy import ImageFetchError, Size
 from pinedaview.logging_config import request_id
 from pinedaview.mcp_server import build_mcp, mcp_app
 from pinedaview.menu_page import MENU_HTML
@@ -58,6 +67,7 @@ from pinedaview.photos import DuplicatePhotoError, Photo, TooLongError
 from pinedaview.providers.news import NEWS_CACHE
 from pinedaview.providers.news import valid_id as valid_news_id
 from pinedaview.providers.traffic_cams import CAM_CACHE, valid_file
+from pinedaview.recipes import RecipeBox, RecipeFavorite, RecipeShown
 from pinedaview.registry import (
     SCREEN_COLOURS,
     CircleStack,
@@ -81,6 +91,7 @@ from pinedaview.system import HostStats, local_stats
 from pinedaview.takeover import (
     AlarmTakeover,
     CameraTakeover,
+    PictureCard,
     Takeover,
     TakeoverRequest,
     TakeoverUpdate,
@@ -99,6 +110,7 @@ from pinedaview.themes import (
     set_file_themes,
 )
 from pinedaview.timers import SyncedTimer, Timer
+from pinedaview.updates import UpdateStatus, get_update_status, run_update
 from pinedaview.upload_page import UPLOAD_HTML
 from pinedaview.view import PROTOCOL_VERSION, ViewModel, build_view_model
 from pinedaview.webroot import mount_web, webroot_dir
@@ -320,6 +332,8 @@ class DeviceUpdate(BaseModel):
     night_weeknight_start: HHMM | None = None
     night_weekend_start: HHMM | None = None
     night_end: HHMM | None = None
+    night_weekend_end: OptionalHHMM | None = None
+    """When the dashboard comes back at the weekend, or "" for night_end."""
     peek_s: int | None = Field(default=None, ge=10, le=600)
     dim_start: OptionalHHMM | None = None
     dim_end: OptionalHHMM | None = None
@@ -332,6 +346,13 @@ class DeviceUpdate(BaseModel):
     shuffle_hold_s: int | None = Field(default=None, ge=5, le=300)
     ambient_cycle_m: int | None = Field(default=None, ge=1, le=120)
     popups: Popups | None = None
+
+
+class RotationBody(BaseModel):
+    """The kiosk screen's direction: "normal", or the picture turned 90,
+    180 or 270 degrees (wlr-randr's names)."""
+
+    rotation: Literal["normal", "90", "180", "270"]
 
 
 class ViewportUpdate(BaseModel):
@@ -418,6 +439,7 @@ class TimerRequest(BaseModel):
     seconds: float = Field(gt=0)
     label: str = "Timer"
     kind: Literal["timer", "alarm"] = "timer"
+    name: str | None = Field(default=None, max_length=60)
 
 
 class TimerSync(BaseModel):
@@ -518,6 +540,7 @@ _RESET_DEVICE: dict[str, tuple[str, ...]] = {
         "night_weeknight_start",
         "night_weekend_start",
         "night_end",
+        "night_weekend_end",
         "peek_s",
         "dim_start",
         "dim_end",
@@ -554,6 +577,7 @@ _COPYABLE_DEVICE = (
     "night_weeknight_start",
     "night_weekend_start",
     "night_end",
+    "night_weekend_end",
     "peek_s",
     "dim_start",
     "dim_end",
@@ -771,6 +795,10 @@ async def _stream_views(runtime: Runtime, device_id: str) -> AsyncGenerator[str,
         last = first.model_dump_json(exclude={"generated_at"})
         yield _sse("view", 0, first)
         counter = 1
+        cur_update = get_update_status(runtime.settings)
+        if cur_update.state == "updating":
+            yield _sse("update_status", counter, cur_update)
+            counter += 1
         while True:
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=_HEARTBEAT_SECONDS)
@@ -783,6 +811,10 @@ async def _stream_views(runtime: Runtime, device_id: str) -> AsyncGenerator[str,
                 continue
             if event.get("type") == "identify":
                 continue  # for another device
+            if event.get("type") == "update_status":
+                yield _sse("update_status", counter, event.get("status") or {})
+                counter += 1
+                continue
             try:
                 view = await _view_for(runtime, device_id)
             except HTTPException:
@@ -898,6 +930,9 @@ def create_app(runtime: Runtime | None = None) -> FastAPI:
             ),
             asyncio.create_task(
                 asyncio.to_thread(runtime.photos.backfill_colours), name="photo-colour-backfill"
+            ),
+            asyncio.create_task(
+                asyncio.to_thread(runtime.photos.backfill_aspects), name="photo-aspect-backfill"
             ),
         ]
         try:
@@ -1638,6 +1673,16 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
             screen=runtime.mqtt.screen_stats if runtime.mqtt is not None else None,
         )
 
+    @app.get("/api/system/update")
+    async def get_system_update(runtime: RuntimeDep) -> UpdateStatus:
+        return get_update_status(runtime.settings)
+
+    @app.post("/api/system/update/check")
+    async def check_system_update(runtime: RuntimeDep) -> UpdateStatus:
+        status = await run_update(runtime.settings, check_only=True)
+        runtime.broadcaster.publish({"type": "update_status", "status": status.model_dump()})
+        return status
+
     @app.get("/api/themes")
     async def list_themes(runtime: RuntimeDep) -> ThemeList:
         return ThemeList(current=runtime.settings.theme, themes=all_themes())
@@ -1930,13 +1975,38 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return Response(status_code=202)
 
+    @app.post("/api/control/update", status_code=202)
+    async def control_update(runtime: RuntimeDep, request: Request) -> UpdateStatus:
+        _require_pin(runtime, request)
+        status = await run_update(runtime.settings, check_only=False)
+        runtime.broadcaster.publish({"type": "update_status", "status": status.model_dump()})
+        return status
+
+    # Which way the kiosk's screen is turned. No PIN: it's as harmless as a
+    # theme, and the voice assistant turns it too.
+    @app.get("/api/control/rotation")
+    async def control_rotation(runtime: RuntimeDep) -> RotationBody:
+        try:
+            turn = await asyncio.to_thread(rotation, runtime.settings.control)
+        except ControlError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return RotationBody.model_validate({"rotation": turn})
+
+    @app.put("/api/control/rotation")
+    async def control_rotate(body: RotationBody, runtime: RuntimeDep) -> RotationBody:
+        try:
+            await asyncio.to_thread(rotate, runtime.settings.control, body.rotation)
+        except ControlError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return body
+
     @app.get("/api/timers")
     async def list_timers(runtime: RuntimeDep) -> list[Timer]:
         return runtime.timers.list()
 
     @app.post("/api/timers", status_code=201)
     async def add_timer(body: TimerRequest, runtime: RuntimeDep) -> Timer:
-        return runtime.timers.add(body.seconds, body.label, body.kind)
+        return runtime.timers.add(body.seconds, body.label, body.kind, body.name)
 
     @app.put("/api/timers/sync/{source}", status_code=204)
     async def sync_timers(source: str, body: TimerSync, runtime: RuntimeDep) -> Response:
@@ -1972,6 +2042,35 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
         # (null then), and keeps the time left.
         return runtime.takeover.update(body)
 
+    @app.get(
+        "/api/takeover/images/{image_id}",
+        response_class=Response,
+        responses={200: {"content": {"image/webp": {}}}, 404: {}},
+    )
+    async def takeover_image(image_id: str, runtime: RuntimeDep, size: Size = "full") -> Response:
+        # An image search or recipe choices picture, fetched and shrunk by
+        # this server (image_proxy) — only the pictures on the card that's
+        # up, or one a camera has set aside, so this can't fetch anything else.
+        up = runtime.takeover.current()
+        cards = [up.card if up is not None else None, runtime.takeover.covering]
+        card = next((c for c in cards if isinstance(c, PictureCard)), None)
+        item = None
+        if card is not None:
+            item = next((i for i in card.images if i.id.upper() == image_id.upper()), None)
+        if item is None:
+            raise HTTPException(status_code=404, detail="no such picture on screen")
+        try:
+            data, media_type = await runtime.images.picture(item, size)
+        except ImageFetchError as exc:
+            # 404, not 502: the kiosk's nginx fails over to the standby on a
+            # 502 (proxy_next_upstream), and the rest of the collage's
+            # pictures would follow it there and miss.
+            logger.info("image search %s (%s): %s", item.id, size, exc)
+            raise HTTPException(status_code=404, detail="picture unavailable") from exc
+        return Response(
+            content=data, media_type=media_type, headers={"Cache-Control": "private, max-age=600"}
+        )
+
     @app.delete("/api/takeover", status_code=204)
     async def clear_takeover(runtime: RuntimeDep) -> Response:
         up = runtime.takeover.current()
@@ -1982,10 +2081,13 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
             runtime.mqtt.publish("antigua/alarm_stop", {})
         return Response(status_code=204)
 
-    # Alarms and reminders, kept by Antigua (see pinedaview.alarms).
+    # Alarms and reminders, and the recipe box, kept by Antigua (see
+    # pinedaview.alarms and pinedaview.recipes).
     async def _antigua(runtime: Runtime, method: str, path: str, body: Any = None) -> Any:
-        if not re.fullmatch(r"/alarms(/[A-Za-z0-9]+)?", path):
-            raise HTTPException(status_code=404, detail="no such alarm")
+        if not re.fullmatch(
+            r"/alarms(/[A-Za-z0-9]+)?|/recipes(/[0-9a-f]{10}/(favorite|show))?", path
+        ):
+            raise HTTPException(status_code=404, detail="no such alarm or recipe")
         try:
             antigua = runtime.settings.antigua
             return await alarms.call_any(
@@ -2014,8 +2116,32 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
         await _antigua(runtime, "DELETE", f"/alarms/{alarm_id}")
         return Response(status_code=204)
 
+    @app.get("/api/recipes")
+    async def recipe_box(runtime: RuntimeDep) -> RecipeBox:
+        # Favorites and history, each recipe whole, with its page's URL.
+        return RecipeBox.model_validate(await _antigua(runtime, "GET", "/recipes"))
+
+    @app.post("/api/recipes/{recipe_id}/favorite")
+    async def favorite_recipe(recipe_id: str, runtime: RuntimeDep) -> RecipeFavorite:
+        row = await _antigua(runtime, "POST", f"/recipes/{recipe_id}/favorite")
+        return RecipeFavorite.model_validate(row)
+
+    @app.delete("/api/recipes/{recipe_id}/favorite")
+    async def unfavorite_recipe(recipe_id: str, runtime: RuntimeDep) -> RecipeFavorite:
+        row = await _antigua(runtime, "DELETE", f"/recipes/{recipe_id}/favorite")
+        return RecipeFavorite.model_validate(row)
+
+    @app.post("/api/recipes/{recipe_id}/show")
+    async def show_recipe(recipe_id: str, runtime: RuntimeDep) -> RecipeShown:
+        # Antigua opens it and puts its card up, ready for "Alexa, I'm ready".
+        return RecipeShown.model_validate(
+            await _antigua(runtime, "POST", f"/recipes/{recipe_id}/show")
+        )
+
     @app.get("/api/cameras/{name}/stream.mp4")
-    async def camera_stream(name: str, runtime: RuntimeDep) -> StreamingResponse:
+    async def camera_stream(  # noqa: C901 - go2rtc proxy with its own lifecycle closures
+        name: str, runtime: RuntimeDep
+    ) -> StreamingResponse:
         # The camera's live video (fragmented MP4 from go2rtc), and only
         # while its takeover is up — the server has no auth, so this isn't a
         # way to watch the cameras from anywhere on the LAN. Ends when the
@@ -2219,6 +2345,13 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
             raise HTTPException(status_code=404, detail="no subject cutout")
         return FileResponse(path, media_type="image/webp", headers=_PHOTO_CACHE_HEADERS)
 
+    @app.get("/api/photos/{name}/mask")
+    async def get_photo_mask(name: str, runtime: RuntimeDep) -> FileResponse:
+        path = await asyncio.to_thread(runtime.photos.mask, name)
+        if path is None:
+            raise HTTPException(status_code=404, detail="no subject cutout")
+        return FileResponse(path, media_type="image/png", headers=_PHOTO_CACHE_HEADERS)
+
     @app.get("/api/photos/{name}/motion")
     async def get_photo_motion(name: str, runtime: RuntimeDep) -> FileResponse:
         path = runtime.photos.motion_path(name)
@@ -2279,7 +2412,9 @@ def _register(app: FastAPI) -> None:  # noqa: C901 - a flat list of route handle
         if name not in cams.streams or path is None or not path.is_file():
             raise HTTPException(status_code=404, detail="no such camera photo")
         return FileResponse(
-            path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=3600"}
+            path,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-cache, must-revalidate"},
         )
 
     @app.get("/api/wallpaper")

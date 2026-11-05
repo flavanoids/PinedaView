@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 
-import { getLayout, resolveTier } from "./resolve";
+import { fillsPanel, getLayout, resolveTier } from "./resolve";
 
 const layout = getLayout("wide");
 
@@ -37,5 +37,23 @@ describe("resolveTier", () => {
   it("picks the wide tier on a large display", () => {
     expect(resolveTier(layout, 1400).id).toBe("wide");
     expect(resolveTier(layout, 2000).id).toBe("wide");
+  });
+});
+
+describe("resolveTier on a tall screen", () => {
+  it("gives a panel on its side two columns, filling its height", () => {
+    const tier = resolveTier(layout, 1280, 2048);
+    expect(tier.id).toBe("tall");
+    expect(tier.columns).toBe("repeat(2, minmax(0, 1fr))");
+    expect([tier.heroColSpan, tier.heroRowSpan]).toEqual([2, 2]);
+    expect(fillsPanel(tier)).toBe(true);
+  });
+  it("leaves phones and tablets in portrait as they were", () => {
+    expect(resolveTier(layout, 390, 844).id).toBe("compact");
+    expect(resolveTier(layout, 820, 1180).id).toBe("mid");
+    expect(fillsPanel(resolveTier(layout, 820, 1180))).toBe(false);
+  });
+  it("keeps a wide panel wide", () => {
+    expect(resolveTier(layout, 2048, 1280).id).toBe("wide");
   });
 });

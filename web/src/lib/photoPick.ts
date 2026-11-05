@@ -60,11 +60,23 @@ export function recentLimit(count: number): number {
   return Math.floor(count * 0.75);
 }
 
+/** A photo's width over height as the slideshow shows it (its own quarter
+    turns included), or null when the server hasn't read it yet. */
+export function shownAspect(p: Photo): number | null {
+  if (!p.aspect) return null;
+  return (p.rotation ?? 0) % 180 === 90 ? 1 / p.aspect : p.aspect;
+}
+
+/** How much more often a tall screen shows a tall photo: a landscape one
+    loses most of its width there. Still a mix, not a filter. */
+const TALL_LEAN = 3;
+
 /** Photos taken this close together (seconds) are one burst. */
 const BURST_S = 10 * 60;
 
 /** The index of the photo to show after `current`, or -1 with none to
-    pick. `recent` is the names shown lately, newest last. */
+    pick. `recent` is the names shown lately, newest last. On a `tall`
+    screen, tall photos come up more often. */
 export function pickNext(
   photos: readonly Photo[],
   current: number,
@@ -73,6 +85,7 @@ export function pickNext(
   sunrise: number | null,
   sunset: number | null,
   random: () => number = Math.random,
+  tall = false,
 ): number {
   if (photos.length < 2) return photos.length - 1;
   const lately = new Set(recent.slice(-recentLimit(photos.length)));
@@ -91,6 +104,8 @@ export function pickNext(
       Math.abs(was.taken_at - p.taken_at) < BURST_S
     )
       w *= 0.1;
+    const aspect = shownAspect(p);
+    if (tall && aspect !== null && aspect < 0.95) w *= TALL_LEAN;
     return w;
   });
   let r = random() * weights.reduce((a, b) => a + b, 0);

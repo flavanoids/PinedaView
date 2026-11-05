@@ -14,7 +14,7 @@
     type PhotoClockSettings,
   } from "../lib/clockface.svelte";
   import { formatClock, formatTemp, parseClockTime } from "../lib/format";
-  import { frameX } from "../lib/frame.svelte";
+  import { frameX, frameY } from "../lib/frame.svelte";
   import {
     bake,
     bakePanel,
@@ -29,6 +29,16 @@
   } from "../lib/glass";
   import { photoInks } from "../lib/clockInk";
   import { coverCrop, GlassDigits, type SlotView } from "../lib/glassDigits";
+  import {
+    covered,
+    easeOut,
+    figuresCovered,
+    fit as fitIn,
+    lumaIn as lumaInBox,
+    maskFrom,
+    type Luma,
+    type Mask,
+  } from "../lib/photoClockGeometry";
   import { pickNext, recentLimit } from "../lib/photoPick";
   import { photoShare } from "../lib/photoShare.svelte";
   import { platform } from "../lib/platform.svelte";
@@ -52,7 +62,7 @@
     weather = null,
     units = "imperial",
     avoid = null,
-    panel = null,
+    panels = [],
     share = true,
     paused = false,
   }: {
@@ -73,11 +83,11 @@
     /** A corner something else is using (the music card): the date
         picks among the other three. */
     avoid?: "tl" | "tr" | "bl" | "br" | null;
-    /** A card over the clock (the music card) to put the same live glass
-        behind: its box, rounding, fade and resizes are followed. The card
-        is told by a `data-live-glass` attribute while the glass is on, so
-        it can drop its CSS stand-in. */
-    panel?: HTMLElement | null;
+    /** Cards over the clock (the music card, the timer pill) to put the
+        same live glass behind: their boxes, rounding, fades and resizes are
+        followed. Each is told by a `data-live-glass` attribute while its
+        glass is on, so it can drop its CSS stand-in. */
+    panels?: (HTMLElement | null)[];
     /** Trade the photo on screen with the Photo card (lib/photoShare);
         off for Settings' preview. */
     share?: boolean;
@@ -154,13 +164,6 @@
   let swiping = $state(false);
   let landed: Promise<void> = Promise.resolve();
   let land = (): void => {};
-  /** The figures as text. Multi-line when stacked (hours over minutes),
-      row with colon otherwise. */
-  const text = $derived(
-    settings.layout === "stack"
-      ? `${parts.hh}\n${parts.mm}`
-      : `${parts.hh}:${parts.mm}`,
-  );
 
   const tempStr = $derived(
     settings.weather && weather?.current?.tempC != null
@@ -280,36 +283,28 @@
   let height = $state(0);
   /** What a picture frame hides on each side, px: everything that's read
       stays inside it, while the photos still run under the frame's lip. */
-  const fx = $derived(frameX(width));
-
-  /** A coarse alpha mask of a cutout: where the subject is, and the top of
-      it (as a fraction of the photo's height). */
-  interface Mask {
-    w: number;
-    h: number;
-    alpha: Uint8Array;
-    top: number;
-  }
+  const fx = $derived(frameX(width, height));
+  const fy = $derived(frameY(width, height));
+  /** A tall screen always stacks the time: one row would leave most of
+      its height empty. */
+  const tall = $derived(height > width);
+  const stacked = $derived(settings.layout === "stack" || tall);
+  /** Stacked, the hour keeps two figures ("06" over "41"), so the time is
+      a solid block rather than one figure over two. */
+  const hourOf = (hh: string): string => (stacked ? hh.padStart(2, "0") : hh);
+  /** The figures as text. Multi-line when stacked (hours over minutes),
+      row with colon otherwise. */
+  const text = $derived(
+    stacked ? `${hourOf(parts.hh)}\n${parts.mm}` : `${parts.hh}:${parts.mm}`,
+  );
 
   const MASK_W = 96;
-  /** Where the subject's top should land, as a fraction of the screen
-      height: low enough to leave the time some sky, high enough that heads
-      overlap the figures. */
-  const HEAD_AT = 0.24;
   /** Past either share hidden, the time comes to the front. */
   const MAX_HIDDEN = 0.25;
   const MAX_HIDDEN_DIGIT = 0.4;
 
-  /** The image at `url` drawn into a canvas `w` px wide, or null if it
-      won't decode. */
-  async function draw(url: string, w: number) {
-    const img = new Image();
-    img.src = url;
-    try {
-      await img.decode();
-    } catch {
-      return null;
-    }
+  /** A decoded image drawn into a canvas `w` px wide. */
+  function drawAt(img: HTMLImageElement, w: number) {
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = Math.max(
@@ -321,39 +316,34 @@
     return ctx && canvas;
   }
 
+  /** The image at `url` drawn into a canvas `w` px wide, or null if it
+      won't decode. */
+  async function draw(url: string, w: number) {
+    const img = new Image();
+    img.src = url;
+    try {
+      await img.decode();
+    } catch {
+      return null;
+    }
+    return drawAt(img, w);
+  }
+
   async function readMask(url: string): Promise<Mask | null> {
     const canvas = await draw(url, MASK_W);
     if (!canvas) return null;
     const { width: w, height: h } = canvas;
-    const rgba = canvas.getContext("2d")!.getImageData(0, 0, w, h).data;
-    const alpha = new Uint8Array(w * h);
-    let top = 1;
-    for (let y = 0; y < h; y++) {
-      let row = 0;
-      for (let x = 0; x < w; x++) {
-        const on = (rgba[(y * w + x) * 4 + 3] ?? 0) > 127 ? 1 : 0;
-        alpha[y * w + x] = on;
-        row += on;
-      }
-      if (top === 1 && row > w * 0.02) top = y / h;
-    }
-    return { w, h, alpha, top };
+    return maskFrom(
+      canvas.getContext("2d")!.getImageData(0, 0, w, h).data,
+      w,
+      h,
+    );
   }
 
-  /** object-fit: cover's scale and offset for a mask in this box, with the
-      crop slid down or up so the subject's top sits at HEAD_AT. */
-  function fit(m: Mask) {
-    const scale = Math.max(width / m.w, height / m.h);
-    const spare = m.h * scale - height; // px cropped off vertically
-    const want = m.top * m.h * scale - HEAD_AT * height;
-    const dy = spare > 0 ? Math.min(Math.max(want, 0), spare) : spare / 2;
-    return {
-      scale,
-      x: (width - m.w * scale) / 2,
-      y: -dy,
-      pos: spare > 0 ? `50% ${(dy / spare) * 100}%` : "50% 50%",
-    };
-  }
+  /** object-fit: cover's crop for a mask on this screen. */
+  const fit = (m: Mask) => fitIn(m, width, height);
+  /** A box's brightness and busyness on this screen. */
+  const lumaIn = (lm: Luma, b: GlassBox) => lumaInBox(lm, width, height, b);
 
   function position(i: number): string {
     const m = masks[i];
@@ -371,7 +361,8 @@
     void settings.size;
     void family;
     void digitFit;
-    void shift;
+    void shiftX;
+    void shiftY;
     if (!m || rots[face] || !root || !width || !height) {
       hidden = { all: 1, worst: 1 };
       return;
@@ -383,81 +374,23 @@
       if (!live || !digits) return;
       const r = digits.getBoundingClientRect();
       const o = box.getBoundingClientRect();
-      const { scale, x, y } = fit(m);
-      const isStack = chars.includes("\n");
-      const cells = isStack ? 4 : chars.length;
-      const on = new Array<number>(cells).fill(0);
-      const all = new Array<number>(cells).fill(0);
-      const step = Math.max(8, Math.round(scale));
-      const midY = (r.top + r.bottom) / 2 - o.top;
-      for (let cy = r.top - o.top; cy < r.bottom - o.top; cy += step) {
-        for (let cx = r.left - o.left; cx < r.right - o.left; cx += step) {
-          let cell = 0;
-          if (isStack) {
-            const row = cy < midY ? 0 : 1;
-            const col = Math.min(
-              1,
-              Math.floor(((cx - (r.left - o.left)) / r.width) * 2),
-            );
-            cell = row * 2 + col;
-          } else {
-            cell = Math.min(
-              cells - 1,
-              Math.floor(((cx - (r.left - o.left)) / r.width) * cells),
-            );
-          }
-          const mx = Math.floor((cx - x) / scale);
-          const my = Math.floor((cy - y) / scale);
-          all[cell] = (all[cell] ?? 0) + 1;
-          if (mx >= 0 && my >= 0 && mx < m.w && my < m.h)
-            on[cell] = (on[cell] ?? 0) + (m.alpha[my * m.w + mx] ?? 0);
-        }
-      }
-      const total = all.reduce((a, b) => a + b, 0);
-      let worst = 0;
-      if (isStack) {
-        all.forEach((cnt, i) => {
-          if (cnt) worst = Math.max(worst, (on[i] ?? 0) / cnt);
-        });
-      } else {
-        chars.split("").forEach((ch, i) => {
-          if (ch !== ":" && all[i])
-            worst = Math.max(worst, (on[i] ?? 0) / all[i]!);
-        });
-      }
-      hidden = {
-        all: total ? on.reduce((a, b) => a + b, 0) / total : 1,
-        worst,
-      };
+      hidden = figuresCovered(
+        m,
+        width,
+        height,
+        {
+          left: r.left - o.left,
+          top: r.top - o.top,
+          width: r.width,
+          height: r.height,
+        },
+        chars,
+      );
     });
     return () => {
       live = false;
     };
   });
-
-  /** The share of a screen box the subject covers, sampled every 8 px. */
-  function covered(
-    m: Mask,
-    left: number,
-    topY: number,
-    bw: number,
-    bh: number,
-    step = 8,
-  ) {
-    const { scale, x, y } = fit(m);
-    let on = 0;
-    let all = 0;
-    for (let cy = topY; cy < topY + bh; cy += step) {
-      for (let cx = left; cx < left + bw; cx += step) {
-        const mx = Math.floor((cx - x) / scale);
-        const my = Math.floor((cy - y) / scale);
-        all++;
-        if (mx >= 0 && my >= 0 && mx < m.w && my < m.h)
-          on += m.alpha[my * m.w + mx] ?? 0;
-      }
-    }
-    return all ? on / all : 0;
-  }
 
   type Corner = "tl" | "tr";
   /** The corner for the date: top-left or top-right in the header, picking
@@ -473,21 +406,22 @@
     if (!m || rots[face] || !width || !height) return free("tl") ? "tl" : "tr";
     const bw = width * 0.3;
     const bh = height * 0.14;
-    const tlCover = covered(m, fx, 0, bw, bh, 16);
-    const trCover = covered(m, width - fx - bw, 0, bw, bh, 16);
+    const box = (left: number): GlassBox => ({
+      left,
+      top: fy,
+      width: bw,
+      height: bh,
+    });
+    const tlCover = covered(m, width, height, box(fx), 16);
+    const trCover = covered(m, width, height, box(width - fx - bw), 16);
     if (!free("tl")) return "tr";
     if (!free("tr")) return "tl";
     return trCover < tlCover - 0.05 ? "tr" : "tl";
   });
 
-  /** A slot's photo as a small grid of brightness (0–1), cropped and laid
-      out as the screen shows it: how bright it is behind the glass, and
-      where it's calm enough for the time. */
-  interface Luma {
-    w: number;
-    h: number;
-    L: Float32Array;
-  }
+  /** Each slot's photo as a small grid of brightness, cropped as the screen
+      shows it: how bright it is behind the glass, and where it's calm
+      enough for the time. */
   const LUMA_W = 96;
   let lumas = $state.raw<[Luma | null, Luma | null]>([null, null]);
 
@@ -516,41 +450,11 @@
     return { w: c.width, h: c.height, L };
   }
 
-  /** A screen box's mean brightness, and how busy it is: the mean step
-      between neighbouring cells, which is low for sky and wall and high
-      for leaves, crowds and brickwork. */
-  function lumaIn(
-    lm: Luma,
-    left: number,
-    topY: number,
-    bw: number,
-    bh: number,
-  ) {
-    const sx = lm.w / width;
-    const sy = lm.h / height;
-    const x0 = Math.min(lm.w - 1, Math.max(0, Math.floor(left * sx)));
-    const y0 = Math.min(lm.h - 1, Math.max(0, Math.floor(topY * sy)));
-    const x1 = Math.min(lm.w, Math.max(x0 + 1, Math.ceil((left + bw) * sx)));
-    const y1 = Math.min(lm.h, Math.max(y0 + 1, Math.ceil((topY + bh) * sy)));
-    let sum = 0;
-    let busy = 0;
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0; x < x1; x++) {
-        const v = lm.L[y * lm.w + x]!;
-        sum += v;
-        busy +=
-          Math.abs(v - lm.L[y * lm.w + Math.min(x + 1, lm.w - 1)]!) +
-          Math.abs(v - lm.L[Math.min(y + 1, lm.h - 1) * lm.w + x]!);
-      }
-    }
-    const n = (x1 - x0) * (y1 - y0);
-    return { luma: sum / n, busy: busy / n };
-  }
-
-  /** Where the time sits across the top: the middle, unless a side of
-      this photo is clearly calmer (sky, not branches) or the subject would
-      stand over most of the middle. */
-  type Spot = "left" | "centre" | "right";
+  /** Where the time sits: across the top on a wide screen, down the middle
+      on a tall one (its top, middle or bottom). "centre" is where it stands
+      unmoved, unless another spot of this photo is clearly calmer (sky, not
+      branches) or the subject would stand over most of it. */
+  type Spot = "left" | "centre" | "right" | "middle" | "low";
   let spots = $state<[Spot, Spot]>(["centre", "centre"]);
   /** The figures' box at the centre spot, as drawn (scaled). */
   let fig = $state<{ w: number; h: number; top: number } | null>(null);
@@ -561,77 +465,47 @@
   const room = (f: { w: number }): number =>
     width / 2 - fx - width * TIME_EDGE - f.w / 2;
 
-  function dxFor(spot: Spot | undefined): number {
-    if (!spot || spot === "centre" || !fig) return 0;
-    const reach = Math.max(0, room(fig));
-    return spot === "left" ? -reach : reach;
-  }
-  /** The face's spot as an offset from the middle, px. */
-  const shift = $derived(dxFor(spots[face]));
+  /** How far the figures can move down from the top and stay clear of the
+      bottom, px. */
+  const roomDown = (f: { h: number; top: number }): number =>
+    height - fy - height * TIME_EDGE - f.top - f.h;
 
-  /** How much of a spot's time figures a cutout would hide: mean and worst digit cell. */
-  function spotCutoutCover(
-    m: Mask,
-    left: number,
-    topY: number,
-    bw: number,
-    bh: number,
-  ): { all: number; worst: number } {
-    const { scale, x, y } = fit(m);
-    const chars = text;
-    const isStack = chars.includes("\n");
-    const cells = isStack ? 4 : chars.length;
-    const on = new Array<number>(cells).fill(0);
-    const all = new Array<number>(cells).fill(0);
-    const step = Math.max(8, Math.round(scale));
-    const midY = topY + bh / 2;
-    for (let cy = topY; cy < topY + bh; cy += step) {
-      for (let cx = left; cx < left + bw; cx += step) {
-        let cell = 0;
-        if (isStack) {
-          const row = cy < midY ? 0 : 1;
-          const col = Math.min(1, Math.floor(((cx - left) / bw) * 2));
-          cell = row * 2 + col;
-        } else {
-          cell = Math.min(cells - 1, Math.floor(((cx - left) / bw) * cells));
-        }
-        const mx = Math.floor((cx - x) / scale);
-        const my = Math.floor((cy - y) / scale);
-        all[cell] = (all[cell] ?? 0) + 1;
-        if (mx >= 0 && my >= 0 && mx < m.w && my < m.h)
-          on[cell] = (on[cell] ?? 0) + (m.alpha[my * m.w + mx] ?? 0);
-      }
+  function offsetFor(spot: Spot | undefined): [number, number] {
+    if (!spot || spot === "centre" || !fig) return [0, 0];
+    if (spot === "left" || spot === "right") {
+      const reach = Math.max(0, room(fig));
+      return [spot === "left" ? -reach : reach, 0];
     }
-    const total = all.reduce((a, b) => a + b, 0);
-    let worst = 0;
-    if (isStack) {
-      all.forEach((cnt, i) => {
-        if (cnt) worst = Math.max(worst, (on[i] ?? 0) / cnt);
-      });
-    } else {
-      chars.split("").forEach((ch, i) => {
-        if (ch !== ":" && all[i])
-          worst = Math.max(worst, (on[i] ?? 0) / all[i]!);
-      });
-    }
-    return {
-      all: total ? on.reduce((a, b) => a + b, 0) / total : 0,
-      worst,
-    };
+    const reach = Math.max(0, roomDown(fig));
+    if (spot === "low") return [0, reach];
+    return [0, Math.min(reach, Math.max(0, height / 2 - fig.top - fig.h / 2))];
   }
+  /** The face's spot as an offset from where the figures stand, px. Two
+      numbers, not a pair: a new [0, 0] after every swipe would re-run the
+      glass (and its next-minute bake) though nothing moved. */
+  const shiftX = $derived(offsetFor(spots[face])[0]);
+  const shiftY = $derived(offsetFor(spots[face])[1]);
 
   function chooseSpot(i: 0 | 1): Spot {
     const lm = lumas[i];
     const f = fig;
     // Too little room either side to be worth a move.
-    if (!lm || !f || !width || room(f) < width * 0.12) return "centre";
+    if (!lm || !f || !width) return "centre";
+    if (tall ? roomDown(f) < height * 0.12 : room(f) < width * 0.12)
+      return "centre";
     const m = settings.depth && hasCutout(i) ? masks[i] : null;
     const score = (s: Spot): number => {
-      const left = width / 2 + dxFor(s) - f.w / 2;
-      const { busy } = lumaIn(lm, left, f.top, f.w, f.h);
+      const [dx, dy] = offsetFor(s);
+      const b = {
+        left: width / 2 + dx - f.w / 2,
+        top: f.top + dy,
+        width: f.w,
+        height: f.h,
+      };
+      const { busy } = lumaIn(lm, b);
       let penalty = 0;
       if (m) {
-        const cover = spotCutoutCover(m, left, f.top, f.w, f.h);
+        const cover = figuresCovered(m, width, height, b, text);
         if (cover.worst >= MAX_HIDDEN_DIGIT) {
           penalty += 2.0 * cover.worst;
         } else if (cover.worst > 0.1) {
@@ -644,7 +518,9 @@
       return busy + penalty;
     };
     const mid = score("centre");
-    const [side, best] = (["left", "right"] as const)
+    const [side, best] = (
+      tall ? (["middle", "low"] as const) : (["left", "right"] as const)
+    )
       .map((s) => [s, score(s)] as const)
       .reduce((a, b) => (b[1] < a[1] ? b : a));
     return best < mid * SPOT_GAIN && mid - best > SPOT_MIN ? side : "centre";
@@ -667,10 +543,6 @@
 
   /** A 40 px wide copy of the photo as a data URL: the browser's smooth
       upscale of it is a cheap, even blur. "" if it won't decode. */
-  async function readFrost(url: string): Promise<string> {
-    return (await draw(url, 40))?.toDataURL("image/jpeg", 0.8) ?? "";
-  }
-
   const frostCache = new Map<string, string>();
   async function getFrost(
     url: string,
@@ -679,23 +551,8 @@
     if (!url) return "";
     const cached = frostCache.get(url);
     if (cached) return cached;
-    let frost = "";
-    if (img && img.naturalWidth && img.naturalHeight) {
-      const w = 40;
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = Math.max(
-        1,
-        Math.round((w * img.naturalHeight) / img.naturalWidth),
-      );
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, w, canvas.height);
-        frost = canvas.toDataURL("image/jpeg", 0.8);
-      }
-    } else {
-      frost = await readFrost(url);
-    }
+    const canvas = img?.naturalWidth ? drawAt(img, 40) : await draw(url, 40);
+    const frost = canvas?.toDataURL("image/jpeg", 0.8) ?? "";
     if (frost) {
       frostCache.set(url, frost);
       if (frostCache.size > 20)
@@ -713,21 +570,26 @@
     if (sources[i] === url) frosts[i] = frost;
   }
 
+  /** A photo's cutout mask, from the server's small copy of the cutout
+      (the whole cutout, from a server too old to have one). */
   const maskCache = new Map<string, Promise<Mask | null>>();
-  function maskFor(url: string): Promise<Mask | null> {
-    if (!url) return Promise.resolve(null);
-    let p = maskCache.get(url);
-    if (!p) {
-      p = readMask(url);
-      maskCache.set(url, p);
+  function maskFor(p: Photo): Promise<Mask | null> {
+    if (!p.has_subject) return Promise.resolve(null);
+    let m = maskCache.get(p.name);
+    if (!m) {
+      m = readMask(client.photoMaskUrl(p.name)).then(
+        (got) => got ?? readMask(client.photoSubjectUrl(p.name)),
+      );
+      maskCache.set(p.name, m);
       if (maskCache.size > 20) maskCache.delete(maskCache.keys().next().value!);
     }
-    return p;
+    return m;
   }
 
   /** Load slot i's cutout mask; ignored if the slot has moved on. */
-  async function loadMask(i: number, url: string): Promise<void> {
-    const m = url ? await maskFor(url) : null;
+  async function loadMask(i: number, p: Photo): Promise<void> {
+    const url = subjects[i];
+    const m = await maskFor(p);
     if (subjects[i] === url) masks[i] = m;
   }
 
@@ -772,7 +634,9 @@
         () => null,
       );
       seen.set(url, p);
-      if (seen.size > 12) seen.delete(seen.keys().next().value!);
+      // The photo showing, the one leaving and the one lined up next
+      // (and a spare): each is a whole decoded photo, megabytes on a Pi.
+      if (seen.size > 4) seen.delete(seen.keys().next().value!);
     }
     return p;
   }
@@ -795,7 +659,7 @@
     const canvas = glassEls[i];
     const pos = position(i);
     const needed = i === 0 ? wanted0 : wanted1;
-    const dx = dxFor(spots[i]);
+    const [dx, dy] = offsetFor(spots[i]);
     const lm = lumas[i];
     if (live) {
       glassBoxes[i] = null; // the live glass has it
@@ -837,10 +701,11 @@
         const size = parseFloat(cs.fontSize) * fitScale;
         const pad = size * 0.3;
         // The figures stand at the face's spot; this slot's may differ.
-        const moved = dx - shift;
+        const moved = dx - shiftX;
+        const movedY = dy - shiftY;
         const next = {
           left: r.left - o.left - pad + moved,
-          top: r.top - o.top - pad,
+          top: r.top - o.top - pad + movedY,
           width: r.width + pad * 2,
           height: r.height + pad * 2,
         };
@@ -852,7 +717,7 @@
           y: (height - img.naturalHeight * scale) * (py ?? 0.5),
           ...next,
           cx: r.left - o.left + r.width / 2 + moved,
-          cy: r.top - o.top + r.height / 2,
+          cy: r.top - o.top + r.height / 2 + movedY,
           text: chars,
           font: (n) =>
             `${cs.fontStyle} ${cs.fontWeight} ${n}px ${cs.fontFamily}`,
@@ -868,9 +733,7 @@
               ])
             : null,
           light,
-          glare: lm
-            ? lumaIn(lm, next.left, next.top, next.width, next.height).luma
-            : 0.5,
+          glare: lm ? lumaIn(lm, next).luma : 0.5,
         });
         glassBoxes[i] = ok ? next : null;
       },
@@ -1001,7 +864,7 @@
       const res = Math.min(dpr, 2048 / Math.max(w, h)) * (blur >= 8 ? 0.5 : 1);
       const crop = coverCrop(img, w, h, [px, py], blur, res);
       gd.setPhoto(i, crop);
-      pd?.setPhoto(i, crop);
+      for (const p of panes) p.pd?.setPhoto(i, crop);
       const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
       slotLights[i] = {
         x:
@@ -1057,24 +920,36 @@
 
   function applyShape(spec: Figures, shape: Shape | null): void {
     if (!gd || !liveEl) return;
-    // The minute turning: the old figures dissolve over the new.
-    if (shape && liveSpec && liveSpec.text !== spec.text) ghost();
-    if (shape) gd.setShape(liveEl, shape);
-    liveSpec = spec;
-    liveBox = {
+    const box: GlassBox = {
       left: spec.left,
       top: spec.top,
       width: spec.width,
       height: spec.height,
     };
+    // The minute turning: the old figures melt into the new where the
+    // glass can (WebGL2, and the new box holding the old: not 12:59 →
+    // 1:00), else dissolve over them.
+    const from = liveBox;
+    const turning = !!shape && !!liveSpec && liveSpec.text !== spec.text;
+    const melt =
+      turning && from && liveOn && !motion.reduced && gd.canMelt(from, box)
+        ? { from, to: box }
+        : undefined;
+    if (turning && !melt) ghost();
+    if (shape && gd.setShape(liveEl, shape, melt)) kick();
+    liveSpec = spec;
+    liveBox = box;
     // Now, not next frame: a resized canvas is blank until drawn.
     render(true);
     schedulePrebake();
   }
 
-  /** A copy of the glass as it stands, faded out over what replaces it. The
-      figures that don't change are the same under it, so they hold still;
-      only the digit that turns crossfades. */
+  /** A copy of the glass as it stands, crossfaded with what replaces it.
+      The new glass fades in as the copy fades out, the two added together
+      (plus-lighter, the clock layer being its own stacking context), so the
+      figures that don't change stay exactly as they were: laying a fading
+      copy over the new one instead doubled the glass's milk and shadow at
+      the start of every minute. Only the digit that turns crossfades. */
   let ghostEl = $state<HTMLCanvasElement | null>(null);
   const GHOST_MS = 700;
   function ghost(): void {
@@ -1092,21 +967,27 @@
     el.style.top = `${box.top}px`;
     el.style.width = `${box.width}px`;
     el.style.height = `${box.height}px`;
-    el.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: GHOST_MS,
-      easing: "ease-in-out",
-    });
+    // The same timing for both, so their opacities always add up to one.
+    // Blended only while it shows: a blend mode left on would keep the
+    // clock layer drawn offscreen for good.
+    const timing = { duration: GHOST_MS, easing: "ease-in-out" };
+    el.style.mixBlendMode = "plus-lighter";
+    el.animate([{ opacity: 1 }, { opacity: 0 }], timing).onfinish = () => {
+      el.style.mixBlendMode = "";
+    };
+    liveEl.animate([{ opacity: 0 }, { opacity: 1 }], timing);
   }
 
   $effect(() => {
     const chars = text;
     void family;
     void settings.size;
-    void settings.layout;
+    void stacked;
     const fitScale = digitFit;
     const glass = settings.glass;
     const lk = look;
-    void shift;
+    void shiftX;
+    void shiftY;
     if (!live || !liveEl || !root || !width || !height) return;
     if (!isGlass(glass)) {
       liveBox = null;
@@ -1165,14 +1046,22 @@
       at.setSeconds(0, 0);
       at.setMinutes(at.getMinutes() + 1);
       const np = formatClock(at);
-      const chars =
-        settings.layout === "stack"
-          ? `${np.hh}\n${np.mm}`
-          : `${np.hh}:${np.mm}`;
+      const chars = stacked
+        ? `${hourOf(np.hh)}\n${np.mm}`
+        : `${np.hh}:${np.mm}`;
       if (chars.length !== spec.text.length) return;
+      // Already baked (the time only moved, or a swipe re-applied it): the
+      // shape doesn't depend on where it stands.
+      const next = { ...spec, text: chars };
+      if (
+        nextShape &&
+        nextShape.look === look &&
+        nextShape.spec.text === chars &&
+        sameFigures(next, nextShape.spec)
+      )
+        return;
       shapeWork = (async () => {
         if (swiping) await landed;
-        const next = { ...spec, text: chars };
         const lk = look;
         const shape = bakeShape(next, lk);
         if (shape && liveSpec === spec)
@@ -1192,20 +1081,6 @@
   };
   const matrixOf = (t: string): DOMMatrix =>
     !t || t === "none" ? new DOMMatrix() : new DOMMatrix(t);
-
-  /** CSS's ease-out, for the drift. */
-  function easeOut(x: number): number {
-    const bez = (t: number, p1: number, p2: number) =>
-      3 * p1 * t * (1 - t) ** 2 + 3 * p2 * t * t * (1 - t) + t ** 3;
-    let lo = 0;
-    let hi = 1;
-    for (let k = 0; k < 18; k++) {
-      const m = (lo + hi) / 2;
-      if (bez(m, 0, 0.58) < x) lo = m;
-      else hi = m;
-    }
-    return bez((lo + hi) / 2, 0, 1);
-  }
 
   /** Each slot's elements and running animations, looked up once (a look
       brings the page's style up to date: milliseconds on a Pi, every
@@ -1317,10 +1192,7 @@
       light: [lx / ll, ly / ll],
       lightRgb: light.rgb,
       tint: hexRgb((tint === "auto" ? tints[i] : tint) || undefined),
-      glare:
-        lm && box
-          ? lumaIn(lm, box.left, box.top, box.width, box.height).luma
-          : 0.5,
+      glare: lm && box ? lumaIn(lm, box).luma : 0.5,
     };
   }
 
@@ -1331,8 +1203,14 @@
   let raf = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSig = "";
+  /** The Ken Burns drift is running (the photos' CSS, and the glass's few
+      redraws a second to follow it). Off on the lite tier: there the glass
+      would wake eight times a second for photos that aren't moving. */
   const drifting = $derived(
-    settings.drift && !motion.reduced && !motion.batterySaver,
+    settings.drift &&
+      !motion.reduced &&
+      !motion.batterySaver &&
+      effectiveTier() !== "lite",
   );
 
   function render(force = false): void {
@@ -1343,7 +1221,7 @@
         (v) => `${v.on}|${v.toUv.join(",")}|${v.tint}|${v.lightRgb}|${v.glare}`,
       )
       .join(";");
-    if (!force && !swiping && sig === lastSig) return;
+    if (!force && !swiping && !gd.melting && sig === lastSig) return;
     lastSig = sig;
     gd.draw(liveBox, look, settings.opacity, views);
   }
@@ -1351,8 +1229,9 @@
   function frame(): void {
     raf = 0;
     render();
-    renderPanel();
-    if (swiping || panelMoving()) raf = requestAnimationFrame(frame);
+    renderPanels();
+    if (swiping || panelMoving() || gd?.melting)
+      raf = requestAnimationFrame(frame);
     else if (drifting) timer = setTimeout(kick, DRIFT_FRAME_MS);
   }
 
@@ -1383,30 +1262,29 @@
     };
   });
 
-  // The panel's glass: the same shader, look and photos as the figures',
-  // in a second small canvas behind the card. Its shape is a rounded slab
-  // baked at the card's tallest so far; any shorter height (the card
-  // gliding to fit a new title) is drawn sliced from it, so a resize never
-  // waits on a bake. It draws in the figures' frame loop, plus every frame
-  // the card itself animates (its fade in and out, its height).
+  // The cards' glass: the same shader, look and photos as the figures', in
+  // a small canvas of its own behind each card. A card's shape is a rounded
+  // slab baked at its widest and tallest so far; any smaller size (the music
+  // card gliding to fit a new title, the timer list growing a row) is drawn
+  // sliced from it, so a resize never waits on a bake. It draws in the figures' frame loop, plus every frame
+  // the card itself animates (its fade in and out, its height). Each card
+  // keeps its own context, so one arriving doesn't rebuild another's.
   const PANEL_PAD = 40;
-  let panelEl = $state<HTMLCanvasElement | null>(null);
-  let pd: GlassDigits | null = null;
-  let panelBaked: {
-    w: number;
-    h: number;
-    radius: number;
-    look: typeof look;
-  } | null = null;
-  let panelSig = "";
+  interface Pane {
+    card: HTMLElement;
+    el: HTMLCanvasElement;
+    pd: GlassDigits | null;
+    baked: { w: number; h: number; radius: number; look: typeof look } | null;
+    sig: string;
+  }
+  const panes = new Set<Pane>();
+  const cards = $derived(panels.filter((c): c is HTMLElement => !!c));
 
-  $effect(() => {
-    const el = panelEl;
-    const card = panel;
-    if (!el || !card) return;
+  function paneGlass(el: HTMLCanvasElement, card: HTMLElement) {
     const r = GlassDigits.create(el);
     if (!r) return;
-    pd = r;
+    const pane: Pane = { card, el, pd: r, baked: null, sig: "" };
+    panes.add(pane);
     // The photos as the glass sees them, uploaded to this context too.
     untrack(() => {
       prepSlot(0);
@@ -1414,62 +1292,77 @@
     });
     const lost = (e: Event): void => {
       e.preventDefault();
-      pd = null;
+      pane.pd = null;
     };
     const ro = new ResizeObserver(kick);
     ro.observe(card);
     card.addEventListener("glass:move", kick);
     el.addEventListener("webglcontextlost", lost);
     kick();
-    return () => {
-      ro.disconnect();
-      card.removeEventListener("glass:move", kick);
-      el.removeEventListener("webglcontextlost", lost);
-      card.removeAttribute("data-live-glass");
-      r.dispose();
-      pd = null;
-      panelBaked = null;
-      panelSig = "";
+    return {
+      destroy() {
+        ro.disconnect();
+        card.removeEventListener("glass:move", kick);
+        el.removeEventListener("webglcontextlost", lost);
+        card.removeAttribute("data-live-glass");
+        r.dispose();
+        panes.delete(pane);
+      },
     };
-  });
-
-  const panelMoving = (): boolean =>
-    !!panel && panel.getAnimations().length > 0;
-
-  function panelOff(): void {
-    panel?.removeAttribute("data-live-glass");
-    if (panelEl) panelEl.style.opacity = "0";
-    panelSig = "";
   }
 
-  function renderPanel(): void {
-    const card = panel;
-    const el = panelEl;
-    if (!card || !el) return;
-    if (!pd || !liveOn || !root || !liveSpec) return panelOff();
+  const panelMoving = (): boolean =>
+    [...panes].some((p) => p.card.getAnimations().length > 0);
+
+  function paneOff(p: Pane): void {
+    p.card.removeAttribute("data-live-glass");
+    p.el.style.opacity = "0";
+    p.sig = "";
+  }
+
+  function renderPanels(): void {
+    for (const p of panes) renderPane(p);
+  }
+
+  function renderPane(p: Pane): void {
+    const { card, el, pd } = p;
+    if (!pd || !liveOn || !root || !liveSpec) return paneOff(p);
     const o = root.getBoundingClientRect();
     const r = card.getBoundingClientRect();
-    const w = card.offsetWidth;
-    // Its height mid-glide, and where it's gliding to: baked for the
-    // taller, once, as the glide starts.
+    // Its size mid-glide, and where it's gliding to: baked for the bigger,
+    // once, as the glide starts.
+    const w = r.width;
     const h = r.height;
+    const goalW = Math.max(w, parseFloat(card.style.width) || 0);
     const goal = Math.max(h, parseFloat(card.style.height) || 0);
-    const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0;
-    const b = panelBaked;
+    // A pill's 999px rounding is half its height, as the browser draws it.
+    const radius = Math.min(
+      parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0,
+      goalW / 2,
+      goal / 2,
+    );
+    const b = p.baked;
     if (
       !b ||
       b.look !== look ||
-      Math.abs(b.w - w) > 0.5 ||
       Math.abs(b.radius - radius) > 0.5 ||
+      goalW > b.w + 0.5 ||
       goal > b.h + 0.5
     ) {
-      const shape = bakePanel(w, goal, radius, radius * 0.5, PANEL_PAD, look);
-      if (!shape) return panelOff();
+      // A card that will grow (the timer list) asks for room up front, so
+      // its growing never waits on a bake.
+      const [roomW = 0, roomH = 0] = (card.dataset.glassRoom ?? "")
+        .split(",")
+        .map(Number);
+      const bw = Math.max(goalW, b?.w ?? 0, roomW || 0);
+      const bh = Math.max(goal, b?.h ?? 0, roomH || 0);
+      const shape = bakePanel(bw, bh, radius, radius * 0.5, PANEL_PAD, look);
+      if (!shape) return paneOff(p);
       pd.setShape(el, shape);
-      panelBaked = { w, h: goal, radius, look };
+      p.baked = { w: bw, h: bh, radius, look };
       el.style.width = `${shape.W / shape.dpr}px`;
       el.style.height = `${shape.H / shape.dpr}px`;
-      panelSig = "";
+      p.sig = "";
     }
     const left = r.left - o.left - PANEL_PAD;
     const top = r.top - o.top - PANEL_PAD;
@@ -1485,16 +1378,17 @@
       slotView(1, card$),
     ];
     const fade = getComputedStyle(card).opacity;
-    const sig = `${left}|${top}|${bh}|${fade}|${views
+    const sig = `${left}|${top}|${w}|${bh}|${fade}|${views
       .map(
         (v) => `${v.on}|${v.toUv.join(",")}|${v.tint}|${v.lightRgb}|${v.glare}`,
       )
       .join(";")}`;
-    if (sig === panelSig) return;
-    panelSig = sig;
-    // The canvas hangs from the card's bottom edge; the slab fills its
-    // lower `bh`, so a taller bake just reaches further up, blank.
-    const canvasH = (panelBaked?.h ?? h) + PANEL_PAD * 2;
+    if (sig === p.sig) return;
+    p.sig = sig;
+    // The canvas hangs from the card's bottom left corner; the slab fills
+    // its lower left, so a bigger bake just reaches further up and right,
+    // blank.
+    const canvasH = (p.baked?.h ?? h) + PANEL_PAD * 2;
     el.style.left = `${left}px`;
     el.style.top = `${top + bh - canvasH}px`;
     el.style.opacity = fade;
@@ -1513,7 +1407,7 @@
   $effect(() => {
     void family;
     void settings.size;
-    void settings.layout;
+    void stacked;
     void text;
     const box = root;
     if (!box || !width) return;
@@ -1538,14 +1432,46 @@
     return Boolean(subjects[i]) && Boolean(masks[i]);
   }
 
+  /** The time sits behind the foreground subject cutout when depth is on,
+      a cutout is present, and it wouldn't hide too much of the figures. */
+  const tucked = $derived(
+    settings.depth &&
+      !moving &&
+      hasCutout(face) &&
+      hidden.all < MAX_HIDDEN &&
+      hidden.worst < MAX_HIDDEN_DIGIT,
+  );
+
+  /** Directional contact shadow cast from the foreground subject cutout
+      onto the clock digits behind it, biased in the opposite direction
+      of the photo's calculated light angle. */
+  const contactShadow = $derived.by(() => {
+    if (!tucked) return null;
+    const l = slotLights[face];
+    const w = width || 1280;
+    const h = height || 800;
+    const normX = l ? 0.5 - l.x / w : 0.2;
+    const normY = l ? 0.5 - l.y / h : 0.3;
+    const dx = Math.round(normX * 14);
+    const dy = Math.max(3, Math.round(normY * 16 + 5));
+    return { dx, dy };
+  });
+
+  /** Subtle luminous rim light / color bleed along the subject silhouette
+      where it crosses the illuminated clock figures. */
+  const rimColor = $derived.by(() => {
+    if (!tucked) return "transparent";
+    if (inks?.main) return inks.main;
+    if (glassTint) return glassTint;
+    return "rgba(255, 255, 255, 0.75)";
+  });
+
   function preload(i: number): void {
     const p = photos[i];
     if (!p) return;
     const displayUrl = client.photoDisplayUrl(p.name);
     void photoFor(displayUrl);
-    if (p.has_subject) {
-      void maskFor(client.photoSubjectUrl(p.name));
-    }
+    void maskFor(p);
   }
 
   let recent: string[] = [];
@@ -1586,13 +1512,18 @@
             new Date(),
             parseClockTime(today?.sunrise),
             parseClockTime(today?.sunset),
+            Math.random,
+            tall,
           );
     preload(upcoming);
   }
 
   function begin(list: Photo[]): void {
     photos = list;
-    if (list.length === 0) return;
+    if (list.length === 0) {
+      ready = true;
+      return;
+    }
     recent = readRecent();
     // Back from the cards: the Photo card's photo, so the handoff doesn't
     // cut to a different one. Otherwise a fresh pick after the last one.
@@ -1616,7 +1547,7 @@
     tints[top] = start.tint ?? "";
     palettes[top] = start.colours ?? [];
     const first = top as 0 | 1;
-    void loadMask(first, subjects[first] ?? "").then(() => readSlot(first));
+    void loadMask(first, start).then(() => readSlot(first));
     void photoFor(displayUrl).then((res) => {
       if (res?.img && sources[first] === displayUrl) {
         void loadFrost(first, displayUrl, res.img);
@@ -1677,6 +1608,37 @@
       : 0,
   );
 
+  /** The first photo is decoded and its glass drawn: the clock fades in
+      whole, rather than the photo popping in over black and the figures
+      changing from their CSS stand-in to the glass a moment later. A slow
+      glass doesn't hold it up past INTRO_WAIT_MS. */
+  let ready = $state(false);
+  const INTRO_WAIT_MS = 1500;
+  $effect(() => {
+    if (ready || !sources[face]) return;
+    const wait = setTimeout(() => (ready = true), INTRO_WAIT_MS);
+    return () => clearTimeout(wait);
+  });
+  $effect(() => {
+    if (ready || !sources[face]) return;
+    const glassDone =
+      !isGlass(settings.glass) ||
+      Boolean(rots[face]) ||
+      liveOn ||
+      glassBoxes[face] != null;
+    if (!glassDone) return;
+    let live = true;
+    const i = face;
+    void tick()
+      .then(() => decodeSlot(i))
+      .then(() => {
+        if (live) ready = true;
+      });
+    return () => {
+      live = false;
+    };
+  });
+
   /** Decode slot i's photo and cutout where they're shown, so their first
       frames on screen don't wait on it. */
   async function decodeSlot(i: number): Promise<void> {
@@ -1712,7 +1674,7 @@
       // jump once it's showing.
       const [photoObj, mask] = await Promise.all([
         photoFor(nextDisplayUrl),
-        maskFor(nextSubjectUrl),
+        maskFor(next),
       ]);
       if (subjects[nextTop] === nextSubjectUrl) {
         masks[nextTop] = mask;
@@ -1735,31 +1697,11 @@
       clip = "";
       moving = false;
 
-      if (settings.transition === "fade") {
-        landed = new Promise((r) => (land = r));
-        swiping = true;
-        relocating = relocate;
-        entering = -1;
-        leaving = top;
-        index = nextIndex;
-        top = nextTop;
-        forget();
-        kick();
-        remember(next.name);
-        planNext();
-        await new Promise((r) => setTimeout(r, FADE_HANDOFF_MS));
-        face = nextTop;
-        pending = -1;
-        relocating = false;
-        await new Promise((r) => setTimeout(r, FADE_MS - FADE_HANDOFF_MS));
-        swiping = false;
-        leaving = -1;
-        land();
-        forget();
-        kick();
-        playClip(next);
-        triggerWhisper();
-      } else {
+      const fade = settings.transition === "fade";
+      const [handoff, total] = fade
+        ? [FADE_HANDOFF_MS, FADE_MS]
+        : [HANDOFF_MS, SWIPE_MS];
+      if (!fade) {
         // Park the next photo off the right edge, let that land, then swipe:
         // it slides in as the current one slides out to the left.
         entering = nextTop;
@@ -1767,30 +1709,30 @@
         await new Promise((r) =>
           requestAnimationFrame(() => requestAnimationFrame(r)),
         );
-        landed = new Promise((r) => (land = r));
-        swiping = true;
-        relocating = relocate;
-        entering = -1;
-        leaving = top;
-        index = nextIndex;
-        top = nextTop;
-        forget();
-        kick();
-        remember(next.name);
-        planNext();
-        await new Promise((r) => setTimeout(r, HANDOFF_MS));
-        face = nextTop;
-        pending = -1;
-        relocating = false;
-        await new Promise((r) => setTimeout(r, SWIPE_MS - HANDOFF_MS));
-        swiping = false;
-        leaving = -1;
-        land();
-        forget();
-        kick();
-        playClip(next);
-        triggerWhisper();
       }
+      landed = new Promise((r) => (land = r));
+      swiping = true;
+      relocating = relocate;
+      entering = -1;
+      leaving = top;
+      index = nextIndex;
+      top = nextTop;
+      forget();
+      kick();
+      remember(next.name);
+      planNext();
+      await new Promise((r) => setTimeout(r, handoff));
+      face = nextTop;
+      pending = -1;
+      relocating = false;
+      await new Promise((r) => setTimeout(r, total - handoff));
+      swiping = false;
+      leaving = -1;
+      land();
+      forget();
+      kick();
+      playClip(next);
+      triggerWhisper();
     } finally {
       swapping = false;
       swiping = false;
@@ -1814,7 +1756,7 @@
   >
     <div
       class="digits {inkLook ? `ink ink-${inkLook}` : ''}"
-      class:stack={settings.layout === "stack"}
+      class:stack={stacked}
       class:glass-liquid={settings.glass === "liquid" ||
         settings.glass === "crystal"}
       class:glass-frosted={settings.glass === "frosted"}
@@ -1836,11 +1778,11 @@
         : undefined}
       style:--frost-pos={position(face)}
       style:scale={digitFit}
-      style:translate={shift ? `${shift}px 0` : undefined}
+      style:translate={shiftX || shiftY ? `${shiftX}px ${shiftY}px` : undefined}
       style:--tint={glassTint}
     >
-      {#if settings.layout === "stack"}
-        <span class="line">{parts.hh}</span>
+      {#if stacked}
+        <span class="line">{hourOf(parts.hh)}</span>
         <span class="line">{parts.mm}</span>
       {:else}
         {text}
@@ -1876,19 +1818,21 @@
 <div
   class="photo-clock"
   class:mode-fade={settings.transition === "fade"}
-  class:mode-drift={settings.drift &&
-    !motion.reduced &&
-    !motion.batterySaver &&
-    effectiveTier() !== "lite"}
+  class:mode-drift={drifting}
+  class:ready
   bind:this={root}
   bind:clientWidth={width}
   bind:clientHeight={height}
   style:--font-family={family}
   style:--clock-opacity={settings.opacity}
   style:--swipe-ms="{SWIPE_MS}ms"
+  style:--handoff-ms="{settings.transition === 'fade'
+    ? FADE_HANDOFF_MS
+    : HANDOFF_MS}ms"
   style:--swipe-ease={SWIPE_EASE}
   style:--hold-ms="{holdMs}ms"
   style:--fx="{fx}px"
+  style:--fy="{fy}px"
 >
   {#if photos.length > 0}
     <!-- Layer 1: Base Photos -->
@@ -1902,11 +1846,8 @@
           <img
             class="photo-layer"
             data-slot={i}
-            class:drifting={settings.drift &&
-              (i === top || i === leaving) &&
-              !motion.reduced &&
-              !motion.batterySaver &&
-              effectiveTier() !== "lite"}
+            class:drifting={drifting && (i === top || i === leaving)}
+            class:depth-recede={tucked && i === face}
             {src}
             alt=""
             decoding="async"
@@ -1938,12 +1879,6 @@
       {/if}
     {/key}
 
-    {@const tucked =
-      settings.depth &&
-      !moving &&
-      hasCutout(face) &&
-      hidden.all < MAX_HIDDEN &&
-      hidden.worst < MAX_HIDDEN_DIGIT}
     <!-- Layer 2: the glass time, behind the cutout when there is one and it
          wouldn't hide too much of the figures. -->
     {@render clockLayer(!tucked)}
@@ -1961,25 +1896,25 @@
             <img
               class="cutout-layer"
               data-slot={i}
-              class:drifting={settings.drift &&
-                (i === top || i === leaving) &&
-                !motion.reduced &&
-                !motion.batterySaver &&
-                effectiveTier() !== "lite"}
+              class:drifting={drifting && (i === top || i === leaving)}
+              class:tucked={tucked && i === face}
               src={subSrc}
               alt=""
               decoding="async"
               style:--rot="{rots[i]}deg"
               style:object-position={position(i)}
+              style:--contact-dx="{contactShadow?.dx ?? 4}px"
+              style:--contact-dy="{contactShadow?.dy ?? 7}px"
+              style:--rim-color={rimColor}
             />
           </div>
         {/if}
       {/each}
     {/if}
-    {#if panel}
-      <canvas class="panel-glass" bind:this={panelEl} aria-hidden="true"
+    {#each cards as card (card)}
+      <canvas class="panel-glass" use:paneGlass={card} aria-hidden="true"
       ></canvas>
-    {/if}
+    {/each}
     <!-- The date pill is for reading: always in front, in whichever corner
          the photo's subject leaves clearest. -->
     {#if settings.date}
@@ -2021,12 +1956,9 @@
     <!-- Empty state: no photos uploaded yet -->
     <div class="empty-backdrop">
       <div class="clock-layer forefront size-l">
-        <div
-          class="digits glass-liquid"
-          class:stack={settings.layout === "stack"}
-        >
-          {#if settings.layout === "stack"}
-            <span class="line">{parts.hh}</span>
+        <div class="digits glass-liquid" class:stack={stacked}>
+          {#if stacked}
+            <span class="line">{hourOf(parts.hh)}</span>
             <span class="line">{parts.mm}</span>
           {:else}
             {text}
@@ -2058,6 +1990,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Up from black once the first photo and its glass are ready. */
+    opacity: 0;
+    transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .photo-clock.ready {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .photo-clock {
+      transition: none;
+    }
   }
 
   /* Slot slide wrappers */
@@ -2119,6 +2062,44 @@
     object-fit: cover;
     transform: rotate(var(--rot, 0deg));
     pointer-events: none;
+    transition: filter 0.8s ease;
+  }
+
+  /* When the clock is tucked behind the subject:
+     Layer 1 (background photo) receives an ultra-subtle atmospheric depth softening
+     (0.85px blur) and slight contrast attenuation, causing the clock and foreground
+     subject to pop forward in physical 3D space. */
+  .photo-layer.depth-recede {
+    filter: blur(0.85px) contrast(0.97) brightness(0.96);
+  }
+
+  /* When the clock is tucked behind the subject:
+     Layer 3 (subject cutout) casts:
+     1. A directional contact shadow onto the clock numerals behind it, biased by
+        the photo's calculated light angle.
+     2. A tight boundary shadow (umbra) right at the subject contour.
+     3. A subtle 2px luminous rim highlight / backlight bleed along the silhouette,
+        catching the glow of the clock digits. */
+  .cutout-layer.tucked {
+    filter: drop-shadow(
+        var(--contact-dx, 4px) var(--contact-dy, 7px) 14px rgba(0, 0, 0, 0.42)
+      )
+      drop-shadow(
+        calc(var(--contact-dx, 4px) * 0.35) calc(var(--contact-dy, 7px) * 0.35)
+          3px rgba(0, 0, 0, 0.28)
+      )
+      drop-shadow(
+        0 0 2.5px color-mix(in srgb, var(--rim-color, #fff) 45%, transparent)
+      );
+  }
+
+  /* Lite (the Pi): no depth filters. A blur on the full-screen photo and three
+     drop-shadows on the full-screen cutout, fading in and out around every
+     swipe, cost the Pi's GPU visible frames. */
+  :global(:root[data-motion="lite"]) .photo-layer,
+  :global(:root[data-motion="lite"]) .cutout-layer {
+    filter: none;
+    transition: none;
   }
 
   /* Ken Burns drift. The cutout moves exactly with its photo: it's the
@@ -2161,6 +2142,10 @@
     .slot-slide {
       transition: none !important;
     }
+    .photo-layer,
+    .cutout-layer {
+      transition: none !important;
+    }
     .photo-layer.drifting,
     .cutout-layer.drifting {
       animation: none !important;
@@ -2176,19 +2161,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding-top: min(8cqh, 48px);
+    padding-top: calc(min(8cqh, 48px) + var(--fy, 0px));
     pointer-events: none;
-    transition:
-      z-index 0.2s ease,
-      opacity 0.5s ease;
+    transition: opacity 0.5s ease;
   }
-  /* Moving to the next photo's spot: out before the handoff, back in at
-     the new spot once it's there. */
+  /* Moving to the next photo's spot: out before the handoff (it jumps to
+     the new spot then, so it must be gone by then), back in once it's
+     there. */
   .clock-layer.relocating {
     opacity: 0;
-    transition:
-      z-index 0.2s ease,
-      opacity 0.18s ease;
+    transition: opacity calc(var(--handoff-ms) * 0.8) ease-out;
   }
   .clock-layer.forefront {
     z-index: 4; /* In front of cutout */
@@ -2235,6 +2217,23 @@
   }
   .size-xl .digits.stack {
     font-size: min(30cqh, 40cqi);
+  }
+  /* A tall screen: the stacked figures take its width, not a strip of its
+     height (size L is a bit under half the screen high, leaving room to
+     move down off a face). */
+  @container (orientation: portrait) {
+    .size-s .digits.stack {
+      font-size: min(18cqh, 30cqi);
+    }
+    .size-m .digits.stack {
+      font-size: min(23cqh, 38cqi);
+    }
+    .size-l .digits.stack {
+      font-size: min(28cqh, 46cqi);
+    }
+    .size-xl .digits.stack {
+      font-size: min(34cqh, 56cqi);
+    }
   }
 
   /* Glass: each figure is filled with a frosted copy of the photo behind
@@ -2514,7 +2513,7 @@
   .date-capsule.corner {
     transition: opacity 0.35s ease;
   }
-  /* Under the card it's behind (drawn by renderPanel); opacity follows the
+  /* Under the card it's behind (drawn by renderPane); opacity follows the
      card's own fade. */
   .panel-glass {
     position: absolute;
@@ -2538,11 +2537,11 @@
   }
   .corner.tl,
   .corner.tr {
-    top: var(--edge);
+    top: calc(var(--edge) + var(--fy, 0px));
   }
   .corner.bl,
   .corner.br {
-    bottom: var(--edge);
+    bottom: calc(var(--edge) + var(--fy, 0px));
   }
   .corner.tl,
   .corner.bl {
@@ -2588,14 +2587,20 @@
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    /* Hidden once faded, as the date pill: its backdrop blur isn't redrawn
+       over the moving photos on every frame of a swipe. */
     opacity: 0;
+    visibility: hidden;
     transition:
       opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transform 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0s 1.2s;
   }
   .whisper-capsule.show {
     opacity: 1;
+    visibility: visible;
     transform: translateX(-50%) translateY(0);
+    transition-delay: 0s;
   }
 
   /* Analog Film Grain Overlay */

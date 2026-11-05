@@ -271,6 +271,15 @@ export interface Look {
   specPow: number;
   /** The faint colour the glass throws off away from the light. */
   caustic: number;
+  /** The figures' lens beyond the rim: how far the whole stroke domes
+      (0, a flat middle), how much its thick middle magnifies what's behind
+      (1.06× at 0.06), and the broad gloss the dome takes on its lit side. */
+  dome: number;
+  magnify: number;
+  gloss: number;
+  /** Sandblasted: matte and even to the edge, no lens and no shine; the
+      photo's colours come through its blur under a white veil (MATTE). */
+  matte: boolean;
   /** The glass's shadows: [drop (CSS px), blur (CSS px), alpha]. */
   shadows: readonly (readonly [number, number, number])[];
 }
@@ -294,6 +303,10 @@ const LIQUID: Look = {
   spec: 0.32,
   specPow: 80,
   caustic: 0.05,
+  dome: 0.55,
+  magnify: 0.06,
+  gloss: 0.16,
+  matte: false,
   shadows: [
     [2, 3, 0.08],
     [10, 24, 0.12],
@@ -304,15 +317,17 @@ export const LOOKS: Record<LookName, Look> = {
   liquid: LIQUID,
   /** Ground glass: the photo behind is only colour, the figures always
       read. */
+  /** Sandblasted glass: the photo behind is only soft colour, the
+      figures always read, and nothing shines. */
   frosted: {
     ...LIQUID,
-    bend: 0.45,
-    disperse: 0.02,
-    blur: 12,
+    blur: 18,
     milk: 0.75,
-    rimLit: 0.45,
-    rimBack: 0.2,
-    spec: 0.2,
+    caustic: 0,
+    dome: 0,
+    magnify: 0,
+    gloss: 0,
+    matte: true,
   },
   /** Cut crystal: a wider, brighter rim, more bend and colour split, almost
       nothing in the middle. */
@@ -330,11 +345,29 @@ export const LOOKS: Record<LookName, Look> = {
     spec: 0.6,
     specPow: 64,
     caustic: 0.08,
+    // Cut, not poured: the bending stays in the rim.
+    dome: 0,
+    magnify: 0,
+    gloss: 0,
     shadows: [
       [2, 3, 0.08],
       [10, 24, 0.1],
     ],
   },
+};
+
+/** The sandblasted look's numbers, shared with glassDigits.ts's shader:
+    how much colour it gives back before the veil (a veil washes it out),
+    the veil over a dark photo (the frost catches the room's light), the
+    grey it takes over a glaring one, its fine tooth, and how much lighter
+    its cut edge is (within half the rim). */
+export const MATTE = {
+  saturate: 1.25,
+  gloomVeil: 0.7,
+  gloomMix: 0.8,
+  glare: 0.1,
+  grain: 0.03,
+  edge: 0.06,
 };
 
 /** Squared distance transform along one row or column (Felzenszwalb &
@@ -398,24 +431,55 @@ function distance(
   return out;
 }
 
+/** The dome's profile across a stroke: its slope falls off as (1 − depth)
+    to this power, and the rim keeps this much of its own slope inside it.
+    Shared with glassDigits.ts's shader, which builds the same surface from
+    the distance field while the figures melt. */
+export const DOME = { pow: 1.35, rimKeep: 0.92 };
+
+/** The slope (0 level, 1 upright) at `sd` px inside the outline: the
+    rim's quarter circle `r` wide, and with a dome, a gentler rise all the
+    way to the stroke's spine `half` px in. */
+export function tiltAt(
+  sd: number,
+  r: number,
+  half: number,
+  dome: number,
+): number {
+  const rim = 1 - Math.min(1, Math.max(0, sd / r));
+  if (dome <= 0) return rim;
+  const body =
+    Math.pow(1 - Math.min(1, Math.max(0, sd / half)), DOME.pow) * dome;
+  return 1 - (1 - rim * DOME.rimKeep) * (1 - body);
+}
+
 /** The glass's surface, from a true distance to the outline (not a blur
     of it, which squares off every corner): across the rim it rises as a
     quarter circle, standing straight up at the outline and level by the
-    rim's width in, so the middle stays clear and flat. Returns the rim
-    width (device px), the softened coverage for the caustic, and per pixel
-    the outward normal's x and y (its z follows) and how far in (0–1). */
+    rim's width in. With the look's dome (the figures, not the cards'
+    slabs) the whole stroke rises gently to its spine, so the middle is a
+    lens too rather than a flat window. Returns the rim width and the
+    strokes' half-width (device px), the softened coverage for the caustic,
+    and per pixel the outward normal's x and y (its z follows), how far in
+    across the rim (0–1) and how far from the spine (0–1, for the
+    magnifying). With `field`, also the signed distance itself, its
+    ridges outside the outline rounded off, for a melt to blend. */
 function lens(
   A: Float32Array,
   W: number,
   H: number,
   size: number,
   look: Look,
+  body: boolean,
 ): {
   r: number;
+  half: number;
   B: Float32Array;
   nx: Float32Array;
   ny: Float32Array;
   t: Float32Array;
+  m: Float32Array;
+  field: Float32Array | null;
 } {
   const r = Math.max(3, size * look.bevel);
   const din = distance((i) => A[i]! < 0.5, W, H);
@@ -426,26 +490,85 @@ function lens(
   for (let i = 0; i < W * H; i++)
     sd[i] = A[i]! >= 0.5 ? din[i]! - 1 + A[i]! : A[i]! - dout[i]!;
   sd = boxBlur(boxBlur(sd, W, H, 2), W, H, 2);
+  const dome = body ? look.dome : 0;
+  const mag = body ? look.magnify : 0;
+  const half = dome > 0 || mag > 0 ? strokeHalf(sd, W, H, r) : r;
   const nx = new Float32Array(W * H);
   const ny = new Float32Array(W * H);
   const t = new Float32Array(W * H);
+  const m = new Float32Array(W * H);
   for (let y = 1; y < H - 1; y++) {
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
       const k = Math.min(1, Math.max(0, sd[i]! / r));
       t[i] = k;
+      if (mag > 0 && sd[i]! > -0.5)
+        m[i] = Math.min(1, Math.max(0, (half - sd[i]!) / half));
+      const tilt = tiltAt(sd[i]!, r, half, dome);
       const gx = sd[i + 1]! - sd[i - 1]!;
       const gy = sd[i + W]! - sd[i - W]!;
       const gl = Math.hypot(gx, gy);
-      if (gl < 1e-6 || k >= 1) continue;
-      // Quarter circle: tilt (1 - k) outward, i.e. against the gradient.
-      nx[i] = (-gx / gl) * (1 - k);
-      ny[i] = (-gy / gl) * (1 - k);
+      if (gl < 1e-6 || tilt <= 0) continue;
+      // Tilted outward, i.e. against the gradient.
+      nx[i] = (-gx / gl) * tilt;
+      ny[i] = (-gy / gl) * tilt;
     }
   }
   const b = Math.max(2, Math.round(r * 0.6));
   const B = boxBlur(boxBlur(A, W, H, b), W, H, b);
-  return { r, B, nx, ny, t };
+  return {
+    r,
+    half,
+    B,
+    nx,
+    ny,
+    t,
+    m,
+    field: body ? meltField(sd, W, H, half) : null,
+  };
+}
+
+/** The strokes' half-width (device px): the median depth along their
+    spines, where the distance peaks. */
+function strokeHalf(sd: Float32Array, W: number, H: number, r: number): number {
+  const ridge: number[] = [];
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      const s = sd[i]!;
+      if (s < 3) continue;
+      if (
+        s >= sd[i - 1]! &&
+        s >= sd[i + 1]! &&
+        s >= sd[i - W]! &&
+        s >= sd[i + W]!
+      )
+        ridge.push(s);
+    }
+  }
+  if (!ridge.length) return r;
+  ridge.sort((a, c) => a - c);
+  return Math.max(r, ridge[Math.floor(ridge.length / 2)]!);
+}
+
+/** The distance a melt blends. Outside the figures it has ridges (halfway
+    between two strokes) that a blend carries into the glass as creases,
+    so there it's rounded off; the outline itself stays exact. */
+function meltField(
+  sd: Float32Array,
+  W: number,
+  H: number,
+  half: number,
+): Float32Array {
+  const ro = Math.max(2, Math.round(half * 0.35));
+  const soft = boxBlur(boxBlur(sd, W, H, ro), W, H, ro);
+  const out = Float32Array.from(sd);
+  for (let i = 0; i < W * H; i++) {
+    if (sd[i]! >= -1) continue;
+    const w = Math.min(1, (-1 - sd[i]!) / (half * 0.6));
+    out[i] = sd[i]! + (Math.min(soft[i]!, -1) - sd[i]!) * w * w * (3 - 2 * w);
+  }
+  return out;
 }
 
 /** The glass lifted off the photo, just: a contact shadow and a soft one
@@ -475,15 +598,21 @@ function castShadows(
     bends the photos through live. Device px, rows top first.
     `geo`: the outward normal's x and y (0–255 for -1–1), how far in from
     the outline (0–255 across the rim), and the figures' coverage.
-    `aux`: the softened coverage (for the caustic) and the shadows' alpha. */
+    `aux`: the softened coverage (for the caustic), the shadows' alpha and
+    how far from the strokes' spine (0–255, for the magnifying). */
 export interface Shape {
   W: number;
   H: number;
   dpr: number;
   /** The rim's width, device px. */
   r: number;
+  /** The strokes' half-width, device px (the rim's, for a slab). */
+  half: number;
   geo: Uint8Array;
   aux: Uint8Array;
+  /** The figures' signed distance (device px, inside positive), for a
+      melt into the next minute's; null for a slab. */
+  field: Float32Array | null;
   /** The figures alone, white, for casting shadows. */
   figures: HTMLCanvasElement;
 }
@@ -496,7 +625,7 @@ export function bakeShape(b: Figures, look: Look): Shape | null {
   const H = Math.round(b.height * dpr);
   if (W < 4 || H < 4) return null;
   const { shape, A } = drawFigures(b, W, H, dpr);
-  return shapeOf(shape, A, W, H, dpr, b.size * dpr, look);
+  return shapeOf(shape, A, W, H, dpr, b.size * dpr, look, true);
 }
 
 /** A rounded slab of the same glass (the music card's): `width`×`height`
@@ -528,7 +657,7 @@ export function bakePanel(
   const raw = sx.getImageData(0, 0, W, H).data;
   const A = new Float32Array(W * H);
   for (let i = 0; i < W * H; i++) A[i] = raw[i * 4 + 3]! / 255;
-  return shapeOf(shape, A, W, H, dpr, (rim * dpr) / LIQUID.bevel, look);
+  return shapeOf(shape, A, W, H, dpr, (rim * dpr) / LIQUID.bevel, look, false);
 }
 
 /** The lens, shadows and packing every glass shape shares. */
@@ -540,8 +669,9 @@ function shapeOf(
   dpr: number,
   size: number,
   look: Look,
+  body: boolean,
 ): Shape {
-  const { r, B, nx, ny, t } = lens(A, W, H, size, look);
+  const { r, half, B, nx, ny, t, m, field } = lens(A, W, H, size, look, body);
 
   const shadow = document.createElement("canvas");
   shadow.width = W;
@@ -556,12 +686,13 @@ function shapeOf(
     const p = i * 4;
     aux[p] = B[i]! * 255;
     aux[p + 1] = sh[p + 3]!;
+    aux[p + 2] = m[i]! * 255;
     geo[p] = Math.round(nx[i]! * 127.5 + 127.5);
     geo[p + 1] = Math.round(ny[i]! * 127.5 + 127.5);
     geo[p + 2] = t[i]! * 255;
     geo[p + 3] = A[i]! * 255;
   }
-  return { W, H, dpr, r, geo, aux, figures: shape };
+  return { W, H, dpr, r, half, geo, aux, field, figures: shape };
 }
 
 /** One pixel of glass: the photo seen through it (`sample(dx, dy, ch)`
@@ -571,7 +702,9 @@ function shadeGlass(
   nx: number,
   ny: number,
   t: number,
+  m: number,
   r: number,
+  half: number,
   sample: (dx: number, dy: number, ch: number) => number,
   L: [number, number],
   lc: RGB,
@@ -582,10 +715,40 @@ function shadeGlass(
   out: Uint8ClampedArray,
   p: number,
 ): void {
+  if (look.matte) {
+    let cr = sample(0, 0, 0);
+    let cg = sample(0, 0, 1);
+    let cb = sample(0, 0, 2);
+    if (tn) {
+      const s = look.stain[0] + look.stain[1];
+      cr *= 1 - s + s * tn[0]!;
+      cg *= 1 - s + s * tn[1]!;
+      cb *= 1 - s + s * tn[2]!;
+    }
+    const lum = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
+    const sat = (c: number) =>
+      Math.min(255, Math.max(0, lum + (c - lum) * MATTE.saturate));
+    const veil =
+      milk + (MATTE.gloomVeil - milk) * gloomOf(luma) * MATTE.gloomMix;
+    const dim = 1 - MATTE.glare * glareOf(luma);
+    // A fixed hash of the pixel for the tooth; the cut edge a hair lighter.
+    const h = Math.sin(p * 12.9898) * 43758.5453;
+    const lift =
+      ((h - Math.floor(h) - 0.5) * MATTE.grain +
+        (1 - Math.min(1, Math.max(0, t / 0.5))) * MATTE.edge) *
+      255;
+    out[p] = (sat(cr) + (255 - sat(cr)) * veil) * dim + lift;
+    out[p + 1] = (sat(cg) + (255 - sat(cg)) * veil) * dim + lift;
+    out[p + 2] = (sat(cb) + (255 - sat(cb)) * veil) * dim + lift;
+    return;
+  }
   const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
   const bend = r * look.bend;
-  const dx = nx * bend;
-  const dy = ny * bend;
+  // The thick middle magnifies: it reads from nearer the spine.
+  const tl = Math.hypot(nx, ny);
+  const pull = tl > 1e-3 ? (look.magnify * half * m) / tl : 0;
+  const dx = nx * (bend - pull);
+  const dy = ny * (bend - pull);
   const e = look.disperse;
   let cr = sample(dx * (1 + e), dy * (1 + e), 0);
   let cg = sample(dx, dy, 1);
@@ -624,8 +787,12 @@ function shadeGlass(
   const hl = Math.hypot(hx, hy, hz);
   const spec =
     Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hl), look.specPow) *
-    look.spec *
-    (1 - t);
+      look.spec *
+      (1 - t) +
+    // The dome's broad gloss on its lit side.
+    Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hl), 14) *
+      look.gloss *
+      Math.min(1, tl / 0.25);
   const glow =
     edge *
       (look.rimLit * Math.max(0, facing) +
@@ -641,7 +808,7 @@ export function bake(b: Bake): boolean {
   const { look } = b;
   const shape = bakeShape(b, look);
   if (!shape) return false;
-  const { W, H, dpr, r, geo, aux } = shape;
+  const { W, H, dpr, r, half, geo, aux } = shape;
 
   // The photo behind, cropped exactly as on screen; frosted glass sees it
   // through a blur, liquid glass nearly sharp.
@@ -715,7 +882,9 @@ export function bake(b: Bake): boolean {
         geo[p]! / 127.5 - 1,
         geo[p + 1]! / 127.5 - 1,
         geo[p + 2]! / 255,
+        aux[p + 2]! / 255,
         r,
+        half,
         sample,
         L,
         lc,

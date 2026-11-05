@@ -2,7 +2,7 @@
 import { contrast, ink } from "@pinedaview/tokens";
 import { describe, expect, it } from "vitest";
 
-// Every built-in theme's quote-card color (core/src/pinedaview/themes.py).
+// Every built-in theme's quote-card color (core/src/pineda_web/themes.py).
 const CARDS = [
   "#645e54",
   "#a888c4",

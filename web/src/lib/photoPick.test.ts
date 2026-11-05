@@ -95,6 +95,25 @@ describe("pickNext", () => {
     expect(dark).toBeGreaterThan(240);
   });
 
+  it("leans towards tall photos on a tall screen", () => {
+    const mix = [
+      photo("cur"),
+      photo("tall", { aspect: 0.75 }),
+      photo("wide", { aspect: 1.333 }),
+      photo("turned", { aspect: 1.333, rotation: 90 }),
+    ];
+    const count = (tall: boolean) => {
+      let n = 0;
+      for (let k = 0; k < 400; k++) {
+        const i = pickNext(mix, 0, [], at(12), RISE, SET, sweep(k, 400), tall);
+        if (i === 1 || i === 3) n++;
+      }
+      return n;
+    };
+    expect(count(false)).toBeLessThan(300);
+    expect(count(true)).toBeGreaterThan(330);
+  });
+
   it("passes over the rest of a burst", () => {
     const t = at(12).getTime() / 1000;
     const shots = [

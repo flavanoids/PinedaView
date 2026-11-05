@@ -2,9 +2,9 @@
 # One manifest → .deb and .rpm:  nfpm pkg -f packaging/nfpm.yaml -p deb -t dist/
 #                                nfpm pkg -f packaging/nfpm.yaml -p rpm -t dist/
 #
-# Expects a self-contained virtualenv already built at /opt/pineda-web/venv
+# Expects a self-contained virtualenv already built at /opt/pinedaview/venv
 # (see scripts/build-package.sh). ${VERSION} and ${ARCH} come from the env.
-name: pineda-web
+name: pinedaview
 arch: ${ARCH}
 platform: linux
 version: ${VERSION}
@@ -12,9 +12,9 @@ section: web
 priority: optional
 maintainer: flavanoids <noreply@users.noreply.github.com>
 description: |
-  Self-hosted server that renders the PinedaDisplay dashboard in any browser,
+  Self-hosted server that renders the PinedaView dashboard in any browser,
   turning spare phones and tablets into ambient screens.
-vendor: PinedaDisplay Web
+vendor: PinedaView
 homepage: https://github.com/flavanoids/PinedaView
 license: Apache-2.0
 
@@ -23,28 +23,43 @@ depends:
   - nftables
 
 contents:
-  - src: /opt/pineda-web/venv
-    dst: /opt/pineda-web/venv
-  - src: packaging/pineda-web.wrapper
+  - src: /opt/pinedaview/venv
+    dst: /opt/pinedaview/venv
+  - src: packaging/pinedaview.wrapper
+    dst: /usr/bin/pinedaview
+    file_info:
+      mode: 0755
+  - src: packaging/pinedaview.wrapper
     dst: /usr/bin/pineda-web
     file_info:
       mode: 0755
-  - src: packaging/pineda-web.service
-    dst: /lib/systemd/system/pineda-web.service
-  - src: packaging/pineda-restart.rules
-    dst: /opt/pineda-web/pineda-restart.rules
-  - src: packaging/pineda-web-guard.service
-    dst: /lib/systemd/system/pineda-web-guard.service
-  - src: packaging/pineda-web-guard.nft
-    dst: /etc/pineda-web/guard.nft
+  - src: scripts/pinedaview-update.sh
+    dst: /usr/local/bin/pinedaview-update
+    file_info:
+      mode: 0755
+  - src: packaging/pinedaview.service
+    dst: /lib/systemd/system/pinedaview.service
+  - src: packaging/pinedaview-restart.rules
+    dst: /opt/pinedaview/pinedaview-restart.rules
+  - src: packaging/pinedaview-guard.service
+    dst: /lib/systemd/system/pinedaview-guard.service
+  - src: packaging/pinedaview-guard.nft
+    dst: /etc/pinedaview/guard.nft
     type: config|noreplace
-  - src: packaging/cloudflared-pineda-web-guard.conf
-    dst: /etc/systemd/system/cloudflared.service.d/pineda-web-guard.conf
+  - src: packaging/cloudflared-pinedaview-guard.conf
+    dst: /etc/systemd/system/cloudflared.service.d/pinedaview-guard.conf
+    type: config|noreplace
+  - src: packaging/pinedaview-update.service
+    dst: /lib/systemd/system/pinedaview-update.service
+  - src: packaging/pinedaview-update.timer
+    dst: /lib/systemd/system/pinedaview-update.timer
+  - src: packaging/pinedaview-update.sudoers
+    dst: /etc/sudoers.d/pinedaview-update
     type: config|noreplace
   - src: core/config.example.toml
-    dst: /etc/pineda-web/config.toml
+    dst: /etc/pinedaview/config.toml
     type: config|noreplace
-  - dst: /var/lib/pineda-web
+  - dst: /var/lib/pinedaview
     type: dir
     file_info:
       mode: 0750

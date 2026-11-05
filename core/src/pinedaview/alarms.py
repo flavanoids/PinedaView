@@ -65,7 +65,7 @@ async def call_any(
     right now (the fallback answers 503 while the primary is up)."""
     tried = [b for b in bases if b]
     if not tried:
-        raise AntiguaError(503, "alarms need Antigua ([antigua] url)")
+        raise AntiguaError(503, "this needs Antigua ([antigua] url)")
     for base in tried[:-1]:
         try:
             return await call(http, base, method, path, body)
@@ -81,7 +81,7 @@ async def call(
     """One request to Antigua. Its 4xx come back as they are (a time that
     has passed, an alarm that's gone); no config or no answer is a 503."""
     if not base:
-        raise AntiguaError(503, "alarms need Antigua ([antigua] url)")
+        raise AntiguaError(503, "this needs Antigua ([antigua] url)")
     try:
         res = await http.request(method, base.rstrip("/") + path, json=body)
     except httpx.HTTPError as exc:

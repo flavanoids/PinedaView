@@ -7,7 +7,6 @@
   import AlarmTakeover from "./components/AlarmTakeover.svelte";
   import Alternate from "./components/Alternate.svelte";
   import CameraTakeover from "./components/CameraTakeover.svelte";
-  import ImageCollageTakeover from "./components/ImageCollageTakeover.svelte";
   import DriftBackground from "./components/DriftBackground.svelte";
   import NightClock from "./components/NightClock.svelte";
   import Overlay from "./components/Overlay.svelte";
@@ -15,7 +14,7 @@
   import Stage from "./components/Stage.svelte";
   import StatusPill from "./components/StatusPill.svelte";
   import Takeover from "./components/Takeover.svelte";
-  import { pick, type WeatherData } from "./cards/types";
+  import { pick, type TimerEntry, type WeatherData } from "./cards/types";
   import { a11y, initA11y, KEY as A11Y_KEY } from "./lib/a11y.svelte";
   import {
     clockFace,
@@ -30,6 +29,7 @@
   import {
     ensureDevice,
     KEY as DEVICE_KEY,
+    reloadOnTurn,
     reportViewport,
   } from "./lib/device";
   import {
@@ -75,25 +75,34 @@
   // Settings and the setup wizard load when first opened, not at start-up:
   // a kiosk can run for weeks without either, so it shouldn't parse them.
   const settingsSheet = () => import("./components/Settings.svelte");
+  // Only a voice image search shows it, so it isn't in the start-up bundle.
+  const imageCollage = () => import("./components/ImageCollageTakeover.svelte");
+  const recipeChoices = () =>
+    import("./components/RecipeChoicesTakeover.svelte");
   const setupWizard = () => import("./components/Wizard.svelte");
   const welcomeScreen = () => import("./components/Welcome.svelte");
+  const updateOverlay = () => import("./components/UpdateOverlay.svelte");
 
   // Small hours (see lib/nightClock): a lone clock on black replaces the
   // dashboard — unless the screen has it switched off, or all the time when
-  // it's held on. A tap shows the dashboard for a while (Settings → Night &
-  // sleep), then it's back.
+  // it's held on. A held clock shows its photos, but not in the small hours:
+  // then it's the plain clock too. A tap shows the dashboard for a while
+  // (Settings → Night & sleep), then it's back.
   let peekUntil = $state(0);
+
+  const smallHours = $derived(
+    isNightClock(clock.now, {
+      weeknightStart: prefs.night_weeknight_start,
+      weekendStart: prefs.night_weekend_start,
+      end: prefs.night_end,
+      weekendEnd: prefs.night_weekend_end,
+    }),
+  );
 
   const sleeping = $derived.by(() => {
     const view = connection?.view;
     if (!view?.night_clock) return false;
-    const due =
-      view.night_clock_hold ||
-      isNightClock(clock.now, {
-        weeknightStart: prefs.night_weeknight_start,
-        weekendStart: prefs.night_weekend_start,
-        end: prefs.night_end,
-      });
+    const due = view.night_clock_hold || smallHours;
     return due && clock.now.getTime() >= peekUntil;
   });
 
@@ -208,8 +217,8 @@
       document.documentElement.dataset.layout = view.layout;
       frame.inset = (view.frame_inset ?? 0) / 100;
       document.documentElement.style.setProperty(
-        "--frame-x",
-        `${view.frame_inset ?? 0}vw`,
+        "--frame-inset",
+        String(view.frame_inset ?? 0),
       );
       clockFace.pushed = isClockFace(view.clock_face) ? view.clock_face : null;
 
@@ -343,7 +352,7 @@
   }
 
   // A kiosk display boots the moment the compositor is up — often a beat before
-  // pineda-web is answering requests, or straight through a service restart.
+  // pinedaview is answering requests, or straight through a service restart.
   // The SSE stream reconnects itself; this initial handshake didn't, so one
   // transient "Failed to fetch" used to latch the fatal screen until someone
   // reloaded the browser by hand. Retry with backoff instead, and clear the
@@ -365,6 +374,7 @@
     let stopped = false;
     let stopMirror: (() => void) | undefined;
     let stopViewport: (() => void) | undefined;
+    let stopTurn: (() => void) | undefined;
 
     async function connect(): Promise<void> {
       if (stopped) return;
@@ -402,6 +412,7 @@
     const stopIdle = untrack(() => {
       if (!previewId) seedKioskParams();
       initPlatform();
+      if (platform.isPi && !previewId) stopTurn = reloadOnTurn();
       initA11y();
       initDisplay();
       initMotion();
@@ -415,6 +426,7 @@
       clearTimeout(retry);
       stopMirror?.();
       stopViewport?.();
+      stopTurn?.();
       connection?.stop();
       stopClock();
       stopIdle();
@@ -460,8 +472,10 @@
     weather={pick<WeatherData>(connection.view, "weather")}
     units={connection.view.units}
     nowPlaying={pick(connection.view, "nowPlaying")}
+    timers={pick<TimerEntry[]>(connection.view, "timer") ?? []}
     photo={connection.view.night_clock_hold &&
-      connection.view.night_clock_photo}
+      connection.view.night_clock_photo &&
+      !smallHours}
     onWake={() => (peekUntil = Date.now() + prefs.peek_s * 1000)}
     held={connection.view.night_clock_hold}
     onLeave={() => {
@@ -557,11 +571,32 @@
     {:else if takeover.card.kind === "alarm"}
       <AlarmTakeover {takeover} />
     {:else if takeover.card.kind === "image_search"}
-      <ImageCollageTakeover {takeover} />
+      {#await imageCollage() then { default: ImageCollage }}
+        <ImageCollage {takeover} />
+      {/await}
+    {:else if takeover.card.kind === "recipe_choices"}
+      {#await recipeChoices() then { default: RecipeChoices }}
+        <RecipeChoices {takeover} />
+      {/await}
     {:else}
       <Takeover {takeover} />
     {/if}
   {/key}
+{/if}
+
+{#if connection?.updateStatus && connection.updateStatus.state !== "idle"}
+  {#await updateOverlay() then { default: UpdateOverlay }}
+    <UpdateOverlay
+      status={connection.updateStatus}
+      onDismiss={() => {
+        const wasSuccess = connection?.updateStatus?.state === "success";
+        connection?.dismissUpdate();
+        if (wasSuccess) {
+          window.location.reload();
+        }
+      }}
+    />
+  {/await}
 {/if}
 
 <style>
@@ -655,7 +690,9 @@
   }
   .gear {
     position: fixed;
-    top: max(var(--space-2), env(safe-area-inset-top));
+    top: calc(
+      max(var(--space-2), env(safe-area-inset-top)) + var(--frame-y, 0px)
+    );
     right: calc(
       max(var(--space-2), env(safe-area-inset-right)) + var(--frame-x, 0px)
     );

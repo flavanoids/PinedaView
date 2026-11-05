@@ -51,7 +51,8 @@
     gap: var(--space-3);
     width: 100%;
     border: 0;
-    padding: var(--space-5) calc(var(--space-5) + var(--frame-x, 0px));
+    padding: calc(var(--space-5) + var(--frame-y, 0px))
+      calc(var(--space-5) + var(--frame-x, 0px));
     background: var(--stage);
     color: var(--on-stage);
     font: inherit;

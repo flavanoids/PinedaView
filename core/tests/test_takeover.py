@@ -216,4 +216,75 @@ async def test_image_search_takeover_and_highlight(client: httpx.AsyncClient) ->
     assert stepped.json()["card"]["highlight"] == "B"
     assert "current_step" not in stepped.json()["card"]
 
+    # null: back to the whole collage
+    cleared = await client.patch("/api/takeover", json={"highlight": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["card"]["highlight"] is None
+
+    await client.delete("/api/takeover")
+
+
+async def test_image_search_comparison_groups(client: httpx.AsyncClient) -> None:
+    images = [{"id": x, "url": f"https://example.com/{x}.jpg"} for x in "ABCD"]
+    groups = [{"label": "Fuji", "ids": ["A", "B"]}, {"label": "Honeycrisp", "ids": ["C", "D"]}]
+    card = {"kind": "image_search", "query": "fuji vs honeycrisp", "images": images}
+    shown = await client.put("/api/takeover", json={"card": {**card, "groups": groups}})
+    assert shown.status_code == 200
+    assert [g["label"] for g in shown.json()["card"]["groups"]] == ["Fuji", "Honeycrisp"]
+    plain = await client.put("/api/takeover", json={"card": card})
+    assert plain.json()["card"]["groups"] == []
+    bad = [{"label": "Gala", "ids": ["Z"]}]
+    refused = await client.put("/api/takeover", json={"card": {**card, "groups": bad}})
+    assert refused.status_code == 422
+    await client.delete("/api/takeover")
+
+
+async def test_recipe_choices_takeover(client: httpx.AsyncClient) -> None:
+    images = [{"id": i, "url": f"https://example.com/{i}.jpg"} for i in ("A1", "A2", "B1")]
+    choices = [
+        {
+            "id": "A",
+            "title": "Chia Pudding",
+            "source": "Minimalist Baker",
+            "rating": 4.9,
+            "rating_count": 312,
+            "total_min": 10,
+            "images": ["A1", "A2"],
+        },
+        {"id": "B", "title": "Overnight Chia Pudding", "images": ["B1"]},
+    ]
+    card = {
+        "kind": "recipe_choices",
+        "dish": "chia seed pudding",
+        "images": images,
+        "choices": choices,
+    }
+    shown = await client.put("/api/takeover", json={"card": card, "seconds": 120})
+    assert shown.status_code == 200
+    got = shown.json()["card"]
+    assert got["kind"] == "recipe_choices" and got["dish"] == "chia seed pudding"
+    assert [c["id"] for c in got["choices"]] == ["A", "B"]
+    assert got["choices"][1]["source"] == "" and got["highlight"] is None
+    lit = await client.patch("/api/takeover", json={"highlight": "B", "current_step": 2})
+    assert lit.json()["card"]["highlight"] == "B"
+    assert "current_step" not in lit.json()["card"]
+    bad = [{"id": "A", "title": "Chia Pudding", "images": ["Z9"]}]
+    refused = await client.put("/api/takeover", json={"card": {**card, "choices": bad}})
+    assert refused.status_code == 422
+    none = await client.put("/api/takeover", json={"card": {**card, "choices": []}})
+    assert none.status_code == 422
+    await client.delete("/api/takeover")
+
+
+async def test_update_can_reset_the_time_left(client: httpx.AsyncClient) -> None:
+    images = [{"id": "A", "url": "https://example.com/a.jpg"}]
+    card = {"kind": "image_search", "query": "the high line", "images": images}
+    shown = (await client.put("/api/takeover", json={"card": card, "seconds": 600})).json()
+    opened = (await client.patch("/api/takeover", json={"highlight": "A", "seconds": 30})).json()
+    assert opened["shown_at"] == shown["shown_at"]  # the same card, not a new one
+    left = datetime.fromisoformat(opened["expires_at"]) - datetime.now(UTC)
+    assert timedelta(seconds=25) < left <= timedelta(seconds=30)
+    kept = (await client.patch("/api/takeover", json={"highlight": None})).json()
+    assert kept["expires_at"] == opened["expires_at"]  # no seconds: time left unchanged
+    assert (await client.patch("/api/takeover", json={"seconds": 0})).status_code == 422
     await client.delete("/api/takeover")

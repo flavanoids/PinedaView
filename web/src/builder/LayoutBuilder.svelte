@@ -9,7 +9,7 @@
     type Theme,
   } from "@pinedaview/protocol";
 
-  import { getLayout, resolveTier } from "../layouts/resolve";
+  import { fillsPanel, getLayout, resolveTier } from "../layouts/resolve";
   import {
     addBrick,
     columnCount,
@@ -76,12 +76,13 @@
     resolveTier(
       getLayout(device?.layout ?? profile?.layout ?? "wide_grid"),
       device?.viewport_w ?? 1280,
+      device?.viewport_h ?? 0,
     ),
   );
   const screen = $derived<ScreenSize>({
     width: device?.viewport_w ?? null,
     height: device?.viewport_h ?? null,
-    fills: !!device?.locked && tier.id === "wide",
+    fills: !!device?.locked && fillsPanel(tier),
   });
   const placeable = $derived(
     cards.filter((c) => c.status === "ready" && !NO_FACE.has(c.id)),
@@ -163,6 +164,7 @@
     return resolveTier(
       getLayout(d.layout ?? p?.layout ?? "wide_grid"),
       d.viewport_w ?? 1280,
+      d.viewport_h ?? 0,
     );
   }
 

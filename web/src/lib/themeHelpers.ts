@@ -41,7 +41,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
 
 /**
  * WCAG relative luminance, 0 (black) to 1 (white).
- * Matches python `pinedaview.themes._luminance`.
+ * Matches python `pineda_web.themes._luminance`.
  */
 export function luminance(hex: string): number {
   if (!isValidHex(hex)) return 0;
@@ -59,7 +59,7 @@ function toLinear(c: number): number {
 
 /**
  * Light or dark text, whichever reads better on average across the given backgrounds.
- * Matches python `pinedaview.themes.ink_for`.
+ * Matches python `pineda_web.themes.ink_for`.
  */
 export function inkFor(...backgrounds: string[]): string {
   if (!backgrounds.length) return LIGHT_INK;
@@ -85,7 +85,7 @@ export function contrastRatio(a: string, b: string): number {
 
 /**
  * Scales each RGB channel by factor (<1 darkens, >1 lightens).
- * Matches python `pinedaview.themes._shade`.
+ * Matches python `pineda_web.themes._shade`.
  */
 export function shade(hex: string, factor: number): string {
   if (!isValidHex(hex)) return hex;

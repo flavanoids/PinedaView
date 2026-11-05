@@ -69,6 +69,11 @@
     gap: 0.6em;
     overflow: hidden;
   }
+  /* A panel that fills its screen sets every row's height, and a short row
+     (a tall screen's cards) is less than the floor: fit the row instead. */
+  :global(.stage.fills) .fit {
+    min-height: 0;
+  }
   /* The quote centred in the space above the author, who sits at the
      bottom. Two inks from the theme's own quote-card color (applyTheme):
      a near-neutral one for the words, the card's hue for the author. */

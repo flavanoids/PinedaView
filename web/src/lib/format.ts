@@ -143,6 +143,14 @@ export function alarmTime(firesAtIso: string): string {
   return timeOfDay(new Date(firesAtIso));
 }
 
+/** "4:05" or "1:02:05" — a running timer's time left, from whole seconds. */
+export function formatCountdown(total: number): string {
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
 /** "3:07" — seconds as m:ss, for a Now-playing elapsed/duration readout. */
 export function formatDuration(totalSeconds: number): string {
   const s = Math.max(0, Math.round(totalSeconds));

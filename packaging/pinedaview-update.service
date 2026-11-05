@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Reference unit for automated PinedaView updates.
+# Checks public GitHub repository, runs pre-flight safety gates, compiles
+# assets, restarts the server, and auto-rolls back if verification fails.
+#
+# Install:
+#   sudo install -m 755 scripts/pinedaview-update.sh /usr/local/bin/pinedaview-update
+#   sudo install -m 644 packaging/pinedaview-update.service /etc/systemd/system/
+#   sudo install -m 644 packaging/pinedaview-update.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now pinedaview-update.timer
+[Unit]
+Description=PinedaView automatic update check and runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/default/pinedaview-update
+ExecStart=/usr/local/bin/pinedaview-update
+TimeoutStartSec=15min
+StandardOutput=journal
+StandardError=journal

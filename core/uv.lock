@@ -1418,7 +1418,7 @@ wheels = [
 ]
 
 [[package]]
-name = \"pinedaview\"
+name = "pinedaview"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [

@@ -117,6 +117,7 @@ class ScreenPrefs(BaseModel):
     night_weeknight_start: str = "00:00"
     night_weekend_start: str = "02:00"
     night_end: str = "05:00"
+    night_weekend_end: str | None = None
     peek_s: int = 60
     dynamic_shuffle: bool = False
     shuffle_hold_s: int = 15
@@ -562,7 +563,13 @@ def _screen_prefs(device: Device, profile: Profile, household: HouseholdPrefs) -
             }
         ),
         **device.model_dump(
-            include={"night_weeknight_start", "night_weekend_start", "night_end", "peek_s"}
+            include={
+                "night_weeknight_start",
+                "night_weekend_start",
+                "night_end",
+                "night_weekend_end",
+                "peek_s",
+            }
         ),
         dynamic_shuffle=(
             device.dynamic_shuffle

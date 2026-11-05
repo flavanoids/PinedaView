@@ -22,7 +22,7 @@
     album?: string;
     genre?: string;
     year?: string;
-    /** The casting device's own name ("Living Room Speaker"), when it sends one. */
+    /** The casting device's own name ("Living Room iPhone"), when it sends one. */
     source?: string;
     playing?: boolean;
     /** Wall-clock start of the current play position (ISO 8601) — the
@@ -35,7 +35,7 @@
     position_s?: number;
     duration_s?: number;
     coverRev?: number;
-    /** Antigua getting something ready for this speaker (airplaypi/loading). */
+    /** Antigua getting something ready for this speaker (speaker/loading). */
     loading?: Loading;
   }
 

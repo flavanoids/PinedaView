@@ -219,11 +219,13 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: var(--space-4);
-    padding: max(var(--space-5), env(safe-area-inset-top))
+    padding: calc(
+        max(var(--space-5), env(safe-area-inset-top)) + var(--frame-y, 0px)
+      )
       calc(
         max(var(--space-5), env(safe-area-inset-right)) + var(--frame-x, 0px)
       )
-      var(--space-3)
+      calc(var(--space-3) + var(--frame-y, 0px))
       calc(max(var(--space-5), env(safe-area-inset-left)) + var(--frame-x, 0px));
     background: var(--stage);
     color: var(--on-stage);
@@ -307,18 +309,19 @@
     grid-template-columns: minmax(0, 0.43fr) auto minmax(0, 1fr);
     gap: var(--space-5);
   }
-  /* A portrait screen stacks them, ingredients first. */
+  /* A portrait screen stacks them, ingredients first; while cooking, the
+     progress dots and the steps share the row below. */
   @media (orientation: portrait) {
-    .body,
-    [data-stage="steps"] .body {
+    .body {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: minmax(0, 0.8fr) minmax(0, 1fr);
     }
     [data-stage="steps"] .body {
+      grid-template-columns: auto minmax(0, 1fr);
       grid-template-rows: minmax(0, 0.32fr) minmax(0, 1fr);
     }
-    .ticks {
-      display: none;
+    [data-stage="steps"] .ingredients {
+      grid-column: 1 / -1;
     }
   }
 
@@ -599,7 +602,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--frame-y, 0px);
     height: calc(0.3rem * var(--ui-scale));
     background: var(--accent);
     transform-origin: left center;

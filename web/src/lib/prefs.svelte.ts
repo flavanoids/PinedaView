@@ -20,6 +20,7 @@ export const DEFAULT_PREFS: ScreenPrefs = {
   night_weeknight_start: "00:00",
   night_weekend_start: "02:00",
   night_end: "05:00",
+  night_weekend_end: null,
   peek_s: 60,
   dynamic_shuffle: false,
   shuffle_hold_s: 15,

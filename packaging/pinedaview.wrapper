@@ -1,3 +1,9 @@
 #!/usr/bin/env sh
 # SPDX-License-Identifier: Apache-2.0
-exec /opt/pineda-web/venv/bin/pineda-web "$@"
+if [ -x /opt/pinedaview/venv/bin/pinedaview ]; then
+  exec /opt/pinedaview/venv/bin/pinedaview "$@"
+elif [ -x /opt/pineda-web/venv/bin/pinedaview ]; then
+  exec /opt/pineda-web/venv/bin/pinedaview "$@"
+else
+  exec /opt/pineda-web/venv/bin/pineda-web "$@"
+fi

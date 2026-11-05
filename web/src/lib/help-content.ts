@@ -143,7 +143,7 @@ export const HELP: HelpEntry[] = [
   },
   {
     title: "Write your own card",
-    body: "A card is a folder in cards/ with a card.json. It declares what it needs (location, network, secret:<key>, photos, provider:<store>) and can include a provider.py. Run `pineda-web dev` to reload manifests as you edit. See docs/CARD_MANIFEST.md and docs/CARD_SDK.md.",
+    body: "A card is a folder in cards/ with a card.json. It declares what it needs (location, network, secret:<key>, photos, provider:<store>) and can include a provider.py. Run `pinedaview dev` to reload manifests as you edit. See docs/CARD_MANIFEST.md and docs/CARD_SDK.md.",
     tags: [
       "card",
       "develop",

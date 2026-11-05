@@ -28,4 +28,9 @@ describe("chimeForFinishedTimers", () => {
     chimeForFinishedTimers([timer("x", 5_000, "alarm")], 0);
     expect(chimeForFinishedTimers([], 5_000)).toBe(false);
   });
+
+  it("leaves Antigua's timers to Antigua, which rings them itself", () => {
+    chimeForFinishedTimers([{ ...timer("y", 5_000), source: "antigua" }], 0);
+    expect(chimeForFinishedTimers([], 5_000)).toBe(false);
+  });
 });

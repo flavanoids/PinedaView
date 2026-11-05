@@ -20,7 +20,7 @@ describe("CameraTakeover", () => {
         reverse: () => {},
         addEventListener: () => {},
         removeEventListener: () => {},
-      })) as any;
+      })) as unknown as typeof Element.prototype.animate;
     }
   });
   it("renders single full-screen camera when no pip_camera is configured", () => {
@@ -30,6 +30,7 @@ describe("CameraTakeover", () => {
         camera: "front_door",
         title: "Front door",
         caption: "",
+        pip_title: "",
       },
       shown_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 30_000).toISOString(),
@@ -38,7 +39,9 @@ describe("CameraTakeover", () => {
     const { container } = render(CameraTakeover, { takeover });
 
     expect(container.querySelector(".camera")).toBeTruthy();
-    expect(container.querySelector(".tag")?.textContent).toContain("Front door");
+    expect(container.querySelector(".tag")?.textContent).toContain(
+      "Front door",
+    );
     expect(container.querySelector(".load-bar")).toBeTruthy();
     expect(container.querySelector(".pip")).toBeNull();
   });
@@ -60,16 +63,22 @@ describe("CameraTakeover", () => {
     const { container } = render(CameraTakeover, { takeover });
 
     expect(container.querySelector(".camera")).toBeTruthy();
-    expect(container.querySelector(".tag")?.textContent).toContain("Front door");
+    expect(container.querySelector(".tag")?.textContent).toContain(
+      "Front door",
+    );
 
     // PiP container
     const pip = container.querySelector(".pip");
     expect(pip).toBeTruthy();
     expect(pip?.querySelector(".pip-tag")?.textContent).toContain("Garage");
     expect(pip?.querySelector(".pip-load-bar")).toBeTruthy();
-    expect(pip?.querySelector(".pip-what")?.textContent).toContain("Connecting to garage");
+    expect(pip?.querySelector(".pip-what")?.textContent).toContain(
+      "Connecting to garage",
+    );
 
     // Caption
-    expect(container.querySelector(".caption")?.textContent).toBe("Identifying…");
+    expect(container.querySelector(".caption")?.textContent).toBe(
+      "Identifying…",
+    );
   });
 });
