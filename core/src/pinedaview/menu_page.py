@@ -1320,6 +1320,16 @@ MENU_HTML = """<!doctype html>
 
   .blurb { margin: 14px 0 0; color: var(--soft); font-size: 0.88rem; min-height: 2.5em; }
 
+  .label {
+    display: block;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--soft);
+    margin-top: 8px;
+    margin-bottom: 2px;
+    letter-spacing: 0.01em;
+  }
+
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .range-head { display: flex; justify-content: space-between; margin-top: 14px; }
   .range-head output { font-variant-numeric: tabular-nums; opacity: 0.78; }
@@ -1955,22 +1965,21 @@ MENU_HTML = """<!doctype html>
 
   <div id="screens" hidden>
     <div class="sc-head">
-      <h2 class="display" tabindex="-1">Screens</h2>
+      <h2 class="display" tabindex="-1">Displays</h2>
       <button type="button" class="find-btn" id="sc-edit" aria-pressed="false">Edit</button>
     </div>
-    <p class="lede">Every display in the house. Tap one to change it.</p>
+    <p class="lede">Manage all screens in your home. Select one to configure.</p>
     <div id="sc-join"></div>
     <div class="sc-list" id="sc-list"></div>
-    <button type="button" class="sc-add" id="sc-add">+ Add a screen</button>
+    <button type="button" class="sc-add" id="sc-add">+ Add a display</button>
     <div class="sc-help" id="sc-help" hidden>
       <ol>
-        <li>On the tablet, open the web browser and go to:
+        <li>On your tablet or display, open the web browser and go to:
           <span class="sc-addr" id="sc-addr"></span></li>
-        <li>The tablet says &ldquo;New screen!&rdquo;</li>
-        <li>It shows up at the top of this page, ready to set up.</li>
+        <li>The display will show &ldquo;New screen!&rdquo;</li>
+        <li>It appears here automatically, ready to configure.</li>
       </ol>
-      <p class="note">On an iPad, choose Share, then Add to Home Screen, so it opens
-        full screen.</p>
+      <p class="note">Tip: On iPad or Android, choose Share &rarr; Add to Home Screen to run full screen.</p>
     </div>
   </div>
 
@@ -1979,7 +1988,7 @@ MENU_HTML = """<!doctype html>
       <a class="changing" id="changing" href="/menu" hidden>
         <span class="dot" aria-hidden="true"></span>
         <span id="changing-t"></span>
-        <span class="to">All screens &rsaquo;</span>
+        <span class="to">Switch display &rsaquo;</span>
       </a>
       <div class="stage-topbar">
         <div class="screen-meta">
@@ -1989,7 +1998,7 @@ MENU_HTML = """<!doctype html>
           </span>
         </div>
         <div class="stage-actions">
-          <button type="button" class="find-btn" id="find-it" hidden>Find it</button>
+          <button type="button" class="find-btn" id="find-it" hidden>Locate</button>
           <button type="button" class="dark-toggle" id="dark-toggle"
             aria-label="Toggle dark mode" title="Dark mode">
             <span class="dark-icon" aria-hidden="true">🌙</span>
@@ -2011,11 +2020,11 @@ MENU_HTML = """<!doctype html>
           </svg>
           <span id="q-clock-label">Photo Clock</span>
         </button>
-        <button class="q mode" type="button" id="q-alt" aria-pressed="false">
+        <button class="q mode" type="button" id="q-alt" aria-pressed="false" title="Cycle between Photo Clock and cards">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 9a8 8 0 0 1 14.5-3.5M20 4v4h-4M20 15a8 8 0 0 1-14.5 3.5M4 20v-4h4"/></svg>
-          Alternate
+          Cycle Views
         </button>
         <button class="q mode" type="button" id="timer-open">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -2025,7 +2034,7 @@ MENU_HTML = """<!doctype html>
         </button>
       </div>
       <button class="ringing" type="button" id="q-dismiss" hidden>
-        Turn off the alarm</button>
+        Dismiss alarm</button>
     </header>
 
     <div class="deck-pages" id="deck-pages">
@@ -2040,7 +2049,7 @@ MENU_HTML = """<!doctype html>
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2"/>
                 <path d="M21 16.5l-4.6-4.6a2 2 0 0 0-2.8 0L7 18"/></svg>
-            <span class="t">Add photos</span><span class="s" id="hub-photos"></span>
+            <span class="t">Photos</span><span class="s" id="hub-photos"></span>
           </a>
           <a class="hub-btn" href="#settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -2048,7 +2057,7 @@ MENU_HTML = """<!doctype html>
                 <path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/>
                 <circle cx="10" cy="17" r="2"/></svg>
             <span class="t">Settings</span>
-            <span class="s" id="hub-settings">Layout, cards and night</span>
+            <span class="s" id="hub-settings">Layout, cards &amp; night schedule</span>
           </a>
           <a class="hub-btn" href="#device">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -2066,18 +2075,17 @@ MENU_HTML = """<!doctype html>
             <path d="M15 6l-6 6 6 6"/></svg>
         Your screen</a>
       <h2 id="look-h" tabindex="-1">Themes</h2>
-      <p class="lede">Colours and type for the whole screen.</p>
+      <p class="lede">Customize color palettes, clock styles, and typography.</p>
       <ul class="swatches" id="swatches" role="radiogroup" aria-label="Theme"></ul>
       <p class="blurb" id="blurb"></p>
 
-      <h3 id="clock-h">Clock</h3>
+      <h3 id="clock-h">Clock Style</h3>
       <div class="chips" id="clocks" role="radiogroup" aria-labelledby="clock-h"></div>
-      <p class="note">Small clock tiles stay stacked, except Word grid and Bulge.</p>
+      <p class="note">Select a clock face for the dashboard. Small tiles stay stacked.</p>
 
       <h3 id="font-h">Font</h3>
       <div class="chips" id="fonts" role="radiogroup" aria-labelledby="font-h"></div>
-      <p class="note">Used for everything but the clock, and kept when the theme changes.
-        A theme you made can bring its own font; pick Theme's own to see it.</p>
+      <p class="note">Applies across all cards. Choose &ldquo;Theme's own&rdquo; for each theme's default typography.</p>
 
       <h3>Background</h3>
       <div class="setting">
@@ -2086,16 +2094,15 @@ MENU_HTML = """<!doctype html>
           <input type="checkbox" class="switch" role="switch" id="anim-bg"
             aria-describedby="anim-bg-s" />
         </div>
-        <p class="hint" id="anim-bg-s">A slow diagonal drift of the theme's own colours
-          behind the cards. Liquid Glass keeps its own background instead.</p>
+        <p class="hint" id="anim-bg-s">Gently animates theme colors behind cards.</p>
       </div>
 
       <div id="wall-box" hidden>
-        <h3>Background picture</h3>
+        <h3>Custom wallpaper</h3>
         <div class="wall">
           <img id="wall-img" alt="Current background" hidden />
           <div class="btns">
-            <label class="pill" id="wall-pick">Choose a picture
+            <label class="pill" id="wall-pick">Choose photo
               <input type="file" id="wall-file" accept="image/jpeg,image/png,image/webp" /></label>
             <button class="pill" type="button" id="wall-remove" hidden>Remove</button>
           </div>
@@ -2111,7 +2118,7 @@ MENU_HTML = """<!doctype html>
             <path d="M15 6l-6 6 6 6"/></svg>
         Your screen</a>
       <h2 tabindex="-1">Alarms</h2>
-      <p class="lede">Set here or by asking Antigua. Once one has gone off, it's gone.</p>
+      <p class="lede">Set alarms and reminders here or via voice assistant.</p>
       <div class="add-row">
         <button class="q" type="button" id="al-add-alarm">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -2135,8 +2142,7 @@ MENU_HTML = """<!doctype html>
             <path d="M15 6l-6 6 6 6"/></svg>
         Your screen</a>
       <h2 tabindex="-1">Recipes</h2>
-      <p class="lede">Favorites and what's been cooked. While a recipe's open, say
-        &ldquo;Alexa, favorite this recipe&rdquo; to keep it.</p>
+      <p class="lede">Browse saved favorites and recent cooking history.</p>
       <div class="rc-seg" role="group" aria-label="Show">
         <button type="button" class="rc-tab" id="rc-tab-fav" aria-pressed="true">Favorites</button>
         <button type="button" class="rc-tab" id="rc-tab-hist" aria-pressed="false">History</button>
@@ -2151,9 +2157,8 @@ MENU_HTML = """<!doctype html>
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M15 6l-6 6 6 6"/></svg>
         Your screen</a>
-      <h2 tabindex="-1">Add photos</h2>
-      <p class="lede">They join the slideshow within a few seconds. For a Live
-        Photo that moves, use Photos → Save as Video, then pick the video.</p>
+      <h2 tabindex="-1">Photos</h2>
+      <p class="lede">Uploaded photos appear in the slideshow within seconds. For motion, upload video clips or Live Photos saved as video.</p>
       <label class="drop" id="up-pick">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2197,15 +2202,15 @@ MENU_HTML = """<!doctype html>
         </div>
         <div class="setting">
           <div class="head">
-            <label for="nc-hold">Show Photo Clock now</label>
+            <label for="nc-hold">Stay on Photo Clock</label>
             <input type="checkbox" class="switch" role="switch" id="nc-hold"
               aria-describedby="nc-hold-s" />
           </div>
-          <p class="hint" id="nc-hold-s">Keeps your photos and clock on screen day and night instead of cards.</p>
+          <p class="hint" id="nc-hold-s">Keep photos and clock on screen full-time instead of rotating cards.</p>
         </div>
         <div class="pc-summary-card" id="pc-summary-card">
           <div class="pc-summary-row">
-            <span class="pc-summary-label">Current look</span>
+            <span class="pc-summary-label">Active style</span>
             <span class="pc-summary-val" id="pc-summary-val">Liquid glass · Row</span>
           </div>
           <button type="button" class="wide-btn pc-customize-btn" id="settings-open-pc">
@@ -2219,77 +2224,74 @@ MENU_HTML = """<!doctype html>
         </div>
       </section>
       <section class="this-screen" id="this-screen" aria-labelledby="this-h">
-        <h3 id="this-h">This screen</h3>
-        <span class="label" id="shows-l">Shows</span>
+        <h3 id="this-h">Display Options</h3>
+        <span class="label" id="shows-l">Default view</span>
         <div class="chips" id="shows" role="radiogroup" aria-labelledby="shows-l"></div>
-        <span class="label" id="popups-l">Pop-ups</span>
+        <span class="label" id="popups-l">Alerts &amp; pop-ups</span>
         <div class="chips" id="popups" role="radiogroup" aria-labelledby="popups-l"
           aria-describedby="popups-s"></div>
-        <p class="note" id="popups-s">Recipes, alarms, and the cameras when someone's at
-          the door.</p>
+        <p class="note" id="popups-s">Doorbell camera feeds, timers, alarms, and active recipe cards.</p>
         <div id="turn-w" hidden>
-          <span class="label" id="turn-l">Turned</span>
+          <span class="label" id="turn-l">Orientation</span>
           <div class="chips" id="turn" role="radiogroup" aria-labelledby="turn-l"></div>
         </div>
-        <label class="label" for="sc-rename">Name</label>
+        <label class="label" for="sc-rename">Display name</label>
         <div class="row2">
           <input class="sc-name" id="sc-rename" type="text" maxlength="40" autocomplete="off" />
           <button type="button" class="pill-btn" id="sc-rename-go">Save</button>
         </div>
         <button type="button" class="wide-btn quiet" id="sc-remove" hidden>
-          Remove this screen</button>
+          Remove this display</button>
       </section>
       <a class="arrange" id="arrange" href="/layout">
-        <span class="t">Arrange this screen</span>
-        <span class="s">Pick card sizes, add cards or remove them</span>
+        <span class="t">Customize Card Layout</span>
+        <span class="s">Add, remove, or rearrange cards on this display</span>
       </a>
       <section id="cards-sec" aria-labelledby="cards-h">
-        <h3 id="cards-h">Card settings</h3>
-      <p class="lede">Tap a card to change what it shows.</p>
+        <h3 id="cards-h">Card Settings</h3>
+      <p class="lede">Tap any card to customize its options.</p>
       <ul class="card-grid" id="card-list" aria-labelledby="cards-h"></ul>
       <details class="others" id="others" hidden>
-        <summary>Not on this screen <span id="others-n"></span></summary>
+        <summary>Inactive cards <span id="others-n"></span></summary>
         <ul class="card-grid" id="other-list"></ul>
       </details>
       </section>
       <section aria-labelledby="pace-h">
-        <h3 id="pace-h">Timing</h3>
-        <p class="lede">How long things stay up before the next one.</p>
+        <h3 id="pace-h">Rotation &amp; Timing</h3>
+        <p class="lede">How quickly cards and photos cycle on screen.</p>
       <div class="setting">
-        <span class="label" id="pace-l">Rotation speed</span>
+        <span class="label" id="pace-l">Card rotation speed</span>
         <div class="chips" id="paces" role="radiogroup" aria-labelledby="pace-l"
           aria-describedby="pace-s"></div>
-        <p class="hint" id="pace-s">Quotes, headlines and camera views.</p>
+        <p class="hint" id="pace-s">How often quotes, news headlines, and camera feeds rotate.</p>
       </div>
       <div class="setting">
-        <span class="label" id="hold-l">Each photo</span>
+        <span class="label" id="hold-l">Photo duration</span>
         <div class="chips" id="holds" role="radiogroup" aria-labelledby="hold-l"></div>
       </div>
       </section>
       <section aria-labelledby="screen-h">
-        <h3 id="screen-h">Night &amp; Dimming</h3>
-        <p class="lede">What the screen does while everyone's asleep.</p>
+        <h3 id="screen-h">Night &amp; Sleep Schedule</h3>
+        <p class="lede">Automate dimming, clock display, and sleep hours.</p>
       <div class="setting">
         <div class="head">
-          <label for="nc-on">Night clock</label>
+          <label for="nc-on">Night clock mode</label>
           <input type="checkbox" class="switch" role="switch" id="nc-on"
             aria-describedby="nc-on-s" />
         </div>
-        <p class="hint" id="nc-on-s">Late at night the screen shows just a big, dim clock.
-          In the morning it goes back to your cards on its own.</p>
+        <p class="hint" id="nc-on-s">Shows a large, dim clock at night, then automatically restores your cards in the morning.</p>
         <div class="sub" id="peek-box">
-          <span class="label" id="peek-l">A tap shows your cards for</span>
+          <span class="label" id="peek-l">Tap screen to wake cards for</span>
           <div class="chips" id="peeks" role="radiogroup" aria-labelledby="peek-l"></div>
         </div>
       </div>
       <div class="setting">
         <div class="head">
-          <label for="dim-on">Dim in the evening</label>
+          <label for="dim-on">Evening dimming</label>
           <input type="checkbox" class="switch" role="switch" id="dim-on"
             aria-describedby="dim-on-s" />
         </div>
-        <p class="hint" id="dim-on-s">Turns the brightness down between these hours,
-          and back up after.</p>
+        <p class="hint" id="dim-on-s">Lowers display brightness during scheduled evening hours.</p>
         <div class="sub" id="dim-box" hidden>
           <div class="span">
             <span>From</span>
@@ -2297,19 +2299,18 @@ MENU_HTML = """<!doctype html>
             <span>to</span><input type="time" class="text-in" id="dim-to" aria-label="Dim until" />
           </div>
           <label class="range-head" for="dim-level">
-            <span>Brightness while dimmed</span>
+            <span>Dimmed brightness level</span>
             <output id="dim-level-v" for="dim-level"></output></label>
           <input class="range" type="range" id="dim-level" min="0.1" max="1" step="0.05" />
         </div>
       </div>
       <div class="setting">
         <div class="head">
-          <label for="night-on">Go dark overnight</label>
+          <label for="night-on">Sleep overnight</label>
           <input type="checkbox" class="switch" role="switch" id="night-on"
             aria-describedby="night-on-s" />
         </div>
-        <p class="hint" id="night-on-s">The screen goes black between these hours,
-          night clock included.</p>
+        <p class="hint" id="night-on-s">Turns the display completely dark during scheduled sleep hours.</p>
         <div class="span" id="night-span" hidden>
           <span>From</span>
           <input type="time" class="text-in" id="night-from" aria-label="Go dark at" />
@@ -2326,27 +2327,26 @@ MENU_HTML = """<!doctype html>
             <path d="M15 6l-6 6 6 6"/></svg>
         Your screen</a>
       <h2 tabindex="-1">Device</h2>
-      <p class="lede">How the screen and the server are doing. Checked every few
-        seconds while this page is open.</p>
+      <p class="lede">Live system health and device status.</p>
       <section class="health" aria-labelledby="pi-h">
-        <h3 id="pi-h">The screen's Raspberry Pi</h3>
+        <h3 id="pi-h">Display hardware</h3>
         <dl class="stats" id="st-screen"></dl>
       </section>
       <section class="health" aria-labelledby="srv-h">
-        <h3 id="srv-h">The server</h3>
+        <h3 id="srv-h">Host server</h3>
         <dl class="stats" id="st-server"></dl>
       </section>
       <section aria-labelledby="restart-h">
-        <h3 id="restart-h">Restart</h3>
+        <h3 id="restart-h">Restart &amp; Reboot</h3>
       <p class="lede" id="restart-lede">
-        Both ask for the PIN, so nobody restarts the screen by accident.</p>
+        Protected by PIN to prevent accidental restarts.</p>
       <div class="restarts">
         <button class="restart" type="button" data-restart="display">
           <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 21v-5h5"/></svg></span>
-          <span><span class="t">Restart the display</span>
-            <span class="s">Reloads the screen. Back in about 20 seconds.</span></span>
+          <span><span class="t">Restart display</span>
+            <span class="s">Reloads the screen interface. Back in ~20 seconds.</span></span>
           <span aria-hidden="true" class="lock"><svg viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="11" width="14" height="10" rx="2"/>
@@ -2356,8 +2356,8 @@ MENU_HTML = """<!doctype html>
           <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v7"/><path d="M6.3 6.3a9 9 0 1 0 11.4 0"/></svg></span>
-          <span><span class="t">Restart the Raspberry Pi</span>
-            <span class="s">A full reboot. Offline for a minute or two.</span></span>
+          <span><span class="t">Reboot display device</span>
+            <span class="s">Full system reboot. Offline for 1&ndash;2 minutes.</span></span>
           <span aria-hidden="true" class="lock"><svg viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="11" width="14" height="10" rx="2"/>
@@ -2367,9 +2367,9 @@ MENU_HTML = """<!doctype html>
       </section>
 
       <section aria-labelledby="update-h">
-        <h3 id="update-h">Software update</h3>
+        <h3 id="update-h">Software Update</h3>
         <p class="lede" id="update-lede">
-          PinedaDisplay automatically checks private GitHub releases. You can also trigger an update on demand.</p>
+          Checks for new releases automatically, or install updates now.</p>
         <div class="restarts">
           <button class="restart" type="button" data-restart="update">
             <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -2377,7 +2377,7 @@ MENU_HTML = """<!doctype html>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
             <span><span class="t" id="up-title">Update software</span>
-              <span class="s" id="up-sub">Checks private GitHub repo and applies updates.</span></span>
+              <span class="s" id="up-sub">Check for and install latest updates.</span></span>
             <span aria-hidden="true" class="lock"><svg viewBox="0 0 24 24" fill="none"
               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="5" y="11" width="14" height="10" rx="2"/>
@@ -2387,8 +2387,8 @@ MENU_HTML = """<!doctype html>
       </section>
 
       <section aria-labelledby="shape-h">
-        <h3 id="shape-h">Screen shape</h3>
-        <p class="lede">Choose round for circular smart displays, or standard for rectangular.</p>
+        <h3 id="shape-h">Screen Shape &amp; Margins</h3>
+        <p class="lede">Optimize layout for round or rectangular screens.</p>
         <button class="q mode" type="button" id="q-round" aria-pressed="false"
           style="min-height:46px;width:100%;border-radius:14px;background:var(--wash);margin-bottom:8px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -2398,13 +2398,11 @@ MENU_HTML = """<!doctype html>
         </button>
       <div class="setting">
         <label class="range-head" for="frame-inset">
-          <span>Picture frame</span>
+          <span>Frame margin</span>
           <output id="frame-inset-v" for="frame-inset"></output></label>
         <input class="range" type="range" id="frame-inset" min="0" max="20" step="1"
           aria-describedby="frame-inset-hint" />
-        <p class="hint" id="frame-inset-hint">If a frame covers the screen's sides, slide until
-          nothing you read is hidden. Photos still fill the screen; the rest moves in at full
-          size.</p>
+        <p class="hint" id="frame-inset-hint">Insets cards and text if a physical picture frame covers the display edges.</p>
       </div>
       </section>
     </div>
@@ -2470,19 +2468,18 @@ MENU_HTML = """<!doctype html>
       <h2 id="keep-h">New screen</h2>
       <p class="lede" id="keep-lede"></p>
       <div class="sc-same" id="keep-same" hidden>
-        <h3>Set up before?</h3>
-        <p class="note">If this is one of these again (opened from a home-screen icon, or its
-          browser was cleared), pick it to carry over its name and settings.</p>
+        <h3>Reconnect existing display</h3>
+        <p class="note">Select a previous display profile to restore its name and settings.</p>
         <div class="chips" id="keep-same-list"></div>
       </div>
-      <h3><label for="keep-name">Name it</label></h3>
+      <h3><label for="keep-name">Display name</label></h3>
       <input class="sc-name" id="keep-name" type="text" maxlength="40" autocomplete="off"
         placeholder="Living Room, Office…" />
       <div class="chips" id="keep-names" style="margin-top:10px"></div>
-      <h3 id="keep-col-h">Its colour</h3>
+      <h3 id="keep-col-h">Accent color</h3>
       <div class="sc-colours" id="keep-colours" role="radiogroup"
         aria-labelledby="keep-col-h"></div>
-      <h3 id="keep-shows-h">What should it show?</h3>
+      <h3 id="keep-shows-h">Default view</h3>
       <div class="sc-choices" id="keep-shows" role="radiogroup"
         aria-labelledby="keep-shows-h"></div>
       <button class="wide-btn" type="button" id="keep-go"></button>
@@ -2495,10 +2492,9 @@ MENU_HTML = """<!doctype html>
   <div class="scrim">
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="forget-h">
       <h2 id="forget-h"></h2>
-      <p class="lede">It goes back to the &ldquo;New screen!&rdquo; message. You can set it up
-        again any time.</p>
+      <p class="lede">This display will return to the setup screen. You can reconnect it at any time.</p>
       <button class="wide-btn danger" type="button" id="forget-go">Remove</button>
-      <button class="wide-btn quiet" type="button" id="forget-cancel">Keep it</button>
+      <button class="wide-btn quiet" type="button" id="forget-cancel">Cancel</button>
     </div>
   </div>
 </template>
@@ -2522,15 +2518,14 @@ MENU_HTML = """<!doctype html>
 <template id="theme-tpl">
   <div class="scrim">
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="theme-h">
-      <h2 id="theme-h">Make a theme</h2>
-      <p class="lede">Pick your colours. The writing on top picks itself so it stays
-        easy to read.</p>
+      <h2 id="theme-h">Create Theme</h2>
+      <p class="lede">Choose your colors. Text contrast adjusts automatically for readability.</p>
       <div class="maker-preview" id="mk-preview" aria-hidden="true">
         <p class="hello">Good morning<i></i></p>
         <b data-slot="weather">Weather</b><b data-slot="clock">9:41</b>
         <b data-slot="affirmation">Quote</b>
       </div>
-      <label class="field">Name
+      <label class="field">Theme name
         <input class="text-in" id="mk-name" maxlength="40" autocomplete="off" /></label>
       <div class="wells" id="mk-wells"></div>
       <h3 id="mk-font-h">Font</h3>
@@ -2547,84 +2542,80 @@ MENU_HTML = """<!doctype html>
   <div class="scrim">
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ck-h">
       <h2 id="ck-h">Photo Clock</h2>
-      <p class="lede" id="ck-lede">Full-screen photos with the time over them. Changes appear on your display as you make them.</p>
-      <h3 id="ck-style-h">Style</h3>
+      <p class="lede" id="ck-lede">Full-screen photos with live clock. Changes preview live on your display.</p>
+      <h3 id="ck-style-h">Clock style</h3>
       <div class="chips" id="ck-style" role="radiogroup" aria-labelledby="ck-style-h"></div>
-      <p class="lede" id="ck-photo-note" hidden>Your photos fill the screen, a minute each,
-        with the time over them, tucked behind the people in them.</p>
+      <p class="lede" id="ck-photo-note" hidden>Photos fill the display with subject depth and live time overlay.</p>
       <div class="clock-preview" id="ck-preview" aria-hidden="true"></div>
       <h3 id="ck-font-h">Font</h3>
       <div class="chips" id="ck-fonts" role="radiogroup" aria-labelledby="ck-font-h"></div>
       <div id="ck-plain">
-        <h3>Colour</h3>
+        <h3>Clock color</h3>
         <div id="ck-wheel"></div>
       </div>
       <div id="ck-tint-box" hidden>
-        <h3 id="ck-tint-h">Tint</h3>
+        <h3 id="ck-tint-h">Clock tint</h3>
         <div class="chips" id="ck-tints" role="radiogroup" aria-labelledby="ck-tint-h"></div>
         <div id="ck-tint-wheel" hidden></div>
-        <h3 id="ck-glass-h">Glass</h3>
+        <h3 id="ck-glass-h">Glass style</h3>
         <div class="chips" id="ck-glass" role="radiogroup" aria-labelledby="ck-glass-h"></div>
         <label class="range-head" for="ck-opacity">
-          <span>Opacity</span><output id="ck-opacity-out" for="ck-opacity"></output>
+          <span>Glass opacity</span><output id="ck-opacity-out" for="ck-opacity"></output>
         </label>
         <input class="range" type="range" id="ck-opacity" min="0" max="1" step="0.05">
 
-        <h3 id="ck-ink-h" style="margin-top:14px">Photo colours</h3>
+        <h3 id="ck-ink-h" style="margin-top:14px">Photo palette</h3>
         <p class="hint" style="margin:2px 0 8px">
-          Numbers in each photo's own colours instead of glass.</p>
+          Tint digits with colors sampled from each photo.</p>
         <div class="chips" id="ck-ink" role="radiogroup" aria-labelledby="ck-ink-h"></div>
 
-        <h3 id="ck-layout-h" style="margin-top:14px">Digits layout</h3>
+        <h3 id="ck-layout-h" style="margin-top:14px">Time layout</h3>
         <p class="hint" id="ck-layout-s" style="margin:2px 0 8px">
-          Row keeps time side-by-side; stacked places hours over minutes for portrait framing.
+          Row keeps time side-by-side; Stacked places hours above minutes.
         </p>
         <div class="chips" id="ck-layout" role="radiogroup" aria-labelledby="ck-layout-h"></div>
 
-        <h3 id="ck-trans-h" style="margin-top:14px">Transition</h3>
+        <h3 id="ck-trans-h" style="margin-top:14px">Photo transition</h3>
         <p class="hint" id="ck-trans-s" style="margin:2px 0 8px">
-          Swipe slides the next photo from the side; fade dissolves softly between photos.
+          Choose slide motion or soft crossfade between photos.
         </p>
         <div class="chips" id="ck-trans" role="radiogroup" aria-labelledby="ck-trans-h"></div>
 
         <div class="setting" style="border-top:1px solid var(--rule);margin-top:14px">
           <div class="head">
-            <label for="ck-drift">Motion drift</label>
+            <label for="ck-drift">Photo motion</label>
             <input type="checkbox" class="switch" role="switch" id="ck-drift"
               aria-describedby="ck-drift-s">
           </div>
-          <p class="hint" id="ck-drift-s">Gentle 3D parallax zoom while each photo is on screen.</p>
+          <p class="hint" id="ck-drift-s">Subtle parallax zoom and drift while photos are displayed.</p>
         </div>
 
         <div class="setting">
           <div class="head">
-            <label for="ck-whisper">Memory whisper</label>
+            <label for="ck-whisper">Photo date stamp</label>
             <input type="checkbox" class="switch" role="switch" id="ck-whisper"
               aria-describedby="ck-whisper-s">
           </div>
-          <p class="hint" id="ck-whisper-s">Briefly reveals the memory date and year of the photo,
-            then softly dissolves away.</p>
+          <p class="hint" id="ck-whisper-s">Briefly displays the date each photo was taken.</p>
         </div>
 
         <div class="setting">
           <div class="head">
-            <label for="ck-weather">Weather in date</label>
+            <label for="ck-weather">Weather badge</label>
             <input type="checkbox" class="switch" role="switch" id="ck-weather"
               aria-describedby="ck-weather-s">
           </div>
-          <p class="hint" id="ck-weather-s">Subtly shows current temperature and condition glyph in
-            the date pill.</p>
+          <p class="hint" id="ck-weather-s">Shows current temperature and condition icon in the date pill.</p>
         </div>
 
         <label class="range-head" for="ck-grain" style="margin-top:10px">
           <span>Film grain</span><output id="ck-grain-out" for="ck-grain"></output>
         </label>
-        <p class="hint" style="margin:2px 0 6px">Fine-art analog texture to soften digital screen
-          glare.</p>
+        <p class="hint" style="margin:2px 0 6px">Adds gentle analog texture to soften digital glare.</p>
         <input class="range" type="range" id="ck-grain" min="0" max="0.25" step="0.05">
       </div>
       <button class="wide-btn" type="button" id="ck-done">Done</button>
-      <button class="wide-btn quiet" type="button" id="ck-off">Bring the cards back</button>
+      <button class="wide-btn quiet" type="button" id="ck-off">Return to cards</button>
     </div>
   </div>
 </template>
@@ -2701,8 +2692,7 @@ MENU_HTML = """<!doctype html>
       </div>
       <h2 id="del-photo-h">Delete photo?</h2>
       <p class="lede" id="del-photo-lede">
-        This will remove this photo from the slideshow. All versions and modifications of this
-        image will be permanently deleted.
+        Permanently remove this photo from your slideshow library.
       </p>
       <button class="wide-btn danger" type="button" id="del-photo-confirm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -2833,16 +2823,16 @@ MENU_HTML = """<!doctype html>
     rose: '#c2566b', blue: '#3a6fd1', green: '#3d8f4f',
   };
   var SHOWS = [
-    { id: 'photo', name: 'Photo Clock', hint: 'Your photos with the time' },
-    { id: 'cameras', name: 'Cameras', hint: 'The latest doorbell and garage photos' },
-    { id: 'cards', name: 'All cards', hint: 'Weather, calendar, news and more' },
-    { id: 'mix', name: 'Mix', hint: 'The cameras plus a few cards' },
+    { id: 'photo', name: 'Photo Clock', hint: 'Full-screen photos with live clock' },
+    { id: 'cards', name: 'Dashboard Cards', hint: 'Weather, calendar, news, and widgets' },
+    { id: 'cameras', name: 'Cameras', hint: 'Live doorbell and security camera feeds' },
+    { id: 'mix', name: 'Cards + Cameras', hint: 'Essential cards alongside camera feeds' },
   ];
   var MIX_CARDS = ['weather', 'clock', 'calendar']; // api._shows_grid's
   var POPUPS = [
-    { id: 'all', name: 'Everything' },
+    { id: 'all', name: 'All alerts' },
     { id: 'cameras', name: 'Cameras only' },
-    { id: 'none', name: 'None' },
+    { id: 'none', name: 'Off' },
   ];
   var SC = {
     devices: [], profiles: [], snapshot: false, poll: null, helpOpen: false, snapUrl: null,
@@ -2864,8 +2854,8 @@ MENU_HTML = """<!doctype html>
     var id = showsOf(d);
     if (id) return SHOWS.filter(function (x) { return x.id === id; })[0].name;
     if (d.night_clock_hold) return d.night_clock_photo !== false ? 'Photo Clock' : 'Clock';
-    if (d.alternate) return 'Photo Clock and cards';
-    return 'Your own layout';
+    if (d.alternate) return 'Photo Clock & cards';
+    return 'Custom layout';
   }
   function stackOf(d) {
     var p = SC.profiles.filter(function (x) { return x.id === d.profile_id; })[0];
@@ -3146,7 +3136,7 @@ MENU_HTML = """<!doctype html>
         call('/api/devices/' + encodeURIComponent(d.id) + '/replace', 'POST', { old: st.same.id })
           .then(function () {
             sheet.close();
-            toast(was + ' is back');
+            toast(was + ' reconnected');
             return loadScreens().then(renderScreens);
           })
           .catch(failed('set up the screen'));
@@ -3158,7 +3148,7 @@ MENU_HTML = """<!doctype html>
         { name: name, colour: st.colour, shows: st.shows })
         .then(function () {
           sheet.close();
-          toast(name + ' is set up');
+          toast(name + ' configured');
           return loadScreens().then(renderScreens);
         })
         .catch(failed('set up the screen'));
@@ -3171,7 +3161,7 @@ MENU_HTML = """<!doctype html>
     var bar = $('changing');
     bar.hidden = false;
     bar.style.setProperty('--sc', colourOf(d));
-    $('changing-t').textContent = 'Changing: ' + (d.name || 'this screen');
+    $('changing-t').textContent = 'Selected: ' + (d.name || 'this display');
     $('find-it').hidden = false;
     var shows = showsOf(d);
     var chips = $('shows');
@@ -3206,13 +3196,12 @@ MENU_HTML = """<!doctype html>
     $('sc-remove').hidden = !!d.home;
     renderTurn();
   }
-  // Which way the kiosk's screen stands: wide, tall, or either one flipped
-  // over. Only the kiosk can be turned from here (/api/control/rotation);
-  // "Tall" is the picture turned 90°, the way the kitchen screen is mounted.
+  // Which way the kiosk's screen stands: landscape, portrait, or either one flipped
+  // over. Only the kiosk can be turned from here (/api/control/rotation).
   var TURNS = [
-    { id: 'wide', name: 'Wide', to: 'normal' },
-    { id: 'tall', name: 'Tall', to: '90' },
-    { id: 'flip', name: 'Flip over' },
+    { id: 'wide', name: 'Landscape', to: 'normal' },
+    { id: 'tall', name: 'Portrait', to: '90' },
+    { id: 'flip', name: 'Flip 180°' },
   ];
   var FLIPPED = { normal: '180', '180': 'normal', '90': '270', '270': '90' };
   var turnNow = null;
@@ -3243,7 +3232,7 @@ MENU_HTML = """<!doctype html>
             .then(function (r) {
               turnNow = r.rotation;
               renderTurn();
-              toast(S.screen.name + (x.to ? ' is now ' + x.name.toLowerCase() : ' flipped over'));
+              toast(S.screen.name + (x.to ? ' is now ' + x.name.toLowerCase() : ' flipped 180°'));
             })
             .catch(failed('turn the screen'));
         },
@@ -3252,8 +3241,8 @@ MENU_HTML = """<!doctype html>
   }
   $('find-it').addEventListener('click', function () {
     call('/api/devices/' + encodeURIComponent(S.screen.id) + '/identify', 'POST')
-      .then(function () { toast(S.screen.name + ' is flashing its name'); })
-      .catch(failed('find the screen'));
+      .then(function () { toast(S.screen.name + ' identified'); })
+      .catch(failed('locate the screen'));
   });
   $('sc-rename-go').addEventListener('click', function () {
     var name = $('sc-rename').value.trim();
@@ -3602,7 +3591,7 @@ MENU_HTML = """<!doctype html>
     q('card-desc').textContent = m.description || '';
     q('card-desc').hidden = !m.description;
     q('card-where').textContent = here ? ''
-      : "This card isn't on this screen. Add it with Arrange this screen.";
+      : "This card is not on your current layout. Add it in Customize Layout.";
     q('card-where').hidden = here;
     q('card-done').addEventListener('click', sheet.close);
     var box = q('card-fields');
@@ -3689,7 +3678,7 @@ MENU_HTML = """<!doctype html>
           }).filter(Boolean));
         },
       });
-      label += ' (separate with commas)';
+      label += ' (comma-separated)';
     } else {
       input = el('input', {
         type: 'text', class: 'text-in', value: value || '',
@@ -3988,7 +3977,7 @@ MENU_HTML = """<!doctype html>
     saveScreen({ dim_level: Number(e.target.value) }, 'change the dimming', true);
   });
   function frameLabel(v) {
-    return Number(v) ? v + '% each side' : 'None';
+    return Number(v) ? v + '% margin' : 'None';
   }
   $('frame-inset').addEventListener('input', function (e) {
     $('frame-inset-v').textContent = frameLabel(e.target.value);
@@ -4103,18 +4092,18 @@ MENU_HTML = """<!doctype html>
   var RESTARTS = {
     display: {
       title: 'Restart the display?', path: '/api/control/restart-display',
-      done: 'Restarting the display',
-      after: 'The screen goes dark for a moment, then comes back on its own.',
+      done: 'Restarting display…',
+      after: 'The screen will reload and return in about 20 seconds.',
     },
     system: {
-      title: 'Restart the Raspberry Pi?', path: '/api/control/restart-system',
-      done: 'Restarting the Raspberry Pi',
-      after: 'The screen is off for a minute or two, then comes back on its own.',
+      title: 'Reboot display device?', path: '/api/control/restart-system',
+      done: 'Rebooting device…',
+      after: 'The device is rebooting. It will be back online in 1-2 minutes.',
     },
     update: {
       title: 'Install software update?', path: '/api/control/update',
-      done: 'Updating PinedaDisplay',
-      after: 'The update is running. The display will show the updating screen and restart automatically.',
+      done: 'Updating software…',
+      after: 'The update is in progress. The display will show update progress and restart automatically.',
     },
   };
 
@@ -4126,8 +4115,8 @@ MENU_HTML = """<!doctype html>
     var busy = false;
     q('pin-h').textContent = job.title;
     q('pin-lede').textContent = S.pinRequired
-      ? 'Enter the PIN.'
-      : 'Nobody has set a PIN, so this just asks first.';
+      ? 'Enter your PIN to continue.'
+      : 'No PIN is configured. Tap Confirm to continue.';
     var dots = q('pin-dots');
     var pad = q('pin-pad');
     var msg = q('pin-msg');
@@ -4199,9 +4188,9 @@ MENU_HTML = """<!doctype html>
       dots.hidden = true;
       pad.hidden = true;
       go.hidden = false;
-      go.textContent = kind === 'display' ? 'Restart the display'
+      go.textContent = kind === 'display' ? 'Restart display'
         : kind === 'update' ? 'Install software update'
-        : 'Restart the Raspberry Pi';
+        : 'Reboot display device';
       go.addEventListener('click', function () { if (!busy) send(''); });
       go.focus();
     }
@@ -4215,10 +4204,10 @@ MENU_HTML = """<!doctype html>
   // ── Theme maker ───────────────────────────────────────────────────
   var WELLS = [
     ['stage', 'Background', 'Behind everything'],
-    ['accent', 'Highlight', 'Timers, progress bars and small details'],
-    ['weather', 'Most cards', 'Weather, calendar and the rest'],
-    ['clock', 'Clock card', 'Also the forecast and countdowns'],
-    ['affirmation', 'Quote card', 'Also the traffic cameras'],
+    ['accent', 'Highlight', 'Timers, progress bars, and accents'],
+    ['weather', 'Primary cards', 'Weather, calendar, and main cards'],
+    ['clock', 'Clock cards', 'Clock face and forecast cards'],
+    ['affirmation', 'Quote cards', 'Quotes and camera cards'],
   ];
   // Same rule as the server (themes.ink_for): light or dark writing,
   // whichever stands out more.
@@ -4680,18 +4669,18 @@ MENU_HTML = """<!doctype html>
     var s = S.screen;
     var bits = [];
     if (s.night_clock_hold && s.night_clock !== false) {
-      bits.push(s.night_clock_photo !== false ? 'Photo Clock on' : 'Clock on');
+      bits.push(s.night_clock_photo !== false ? 'Photo Clock active' : 'Clock active');
     } else if (s.alternate) {
-      bits.push('Photo Clock & cards');
+      bits.push('Cycling views');
     } else if (s.night_clock !== false) {
       bits.push('Night clock on');
     }
     if (s.blackout_start && s.blackout_end) {
-      bits.push('Dark ' + shortTime(s.blackout_start) + '\u2013' + shortTime(s.blackout_end));
+      bits.push('Sleep ' + shortTime(s.blackout_start) + '\u2013' + shortTime(s.blackout_end));
     } else if (s.dim_start && s.dim_end) {
       bits.push('Dims ' + shortTime(s.dim_start));
     }
-    return bits.length ? bits.join(' · ') : 'Photo Clock, layout and night';
+    return bits.length ? bits.join(' · ') : 'Layout, cards & night schedule';
   }
   function shortTime(hhmm) {
     var p = hhmm.split(':');
@@ -4709,7 +4698,7 @@ MENU_HTML = """<!doctype html>
       saveScreen(patch, 'show Photo Clock')
         .then(function () {
           if (!S.screen.night_clock_hold) return;
-          toast('Photo Clock on');
+          toast('Photo Clock active');
           openClockStyle();
         });
     }
@@ -4724,7 +4713,7 @@ MENU_HTML = """<!doctype html>
     saveScreen(patch, 'change the screen')
       .then(function () {
         if (!!S.screen.alternate !== on) return; // didn't save
-        toast(on ? 'Clock and cards take turns' : 'Your cards are back');
+        toast(on ? 'Cycling views' : 'Showing cards');
       });
   });
 
@@ -4738,7 +4727,7 @@ MENU_HTML = """<!doctype html>
     saveScreen({ shape: round ? 'circle' : 'rect', photo_clock: pc }, 'change the shape')
       .then(function () {
         if ((S.screen.shape === 'circle') !== round) return; // didn't save
-        toast(round ? 'Round screen' : 'Rectangular screen');
+        toast(round ? 'Round screen layout' : 'Rectangular layout');
       });
   });
 
@@ -4816,7 +4805,7 @@ MENU_HTML = """<!doctype html>
       q('ck-tint-wheel').hidden = mode !== 'pick';
       preview();
     }
-    [['', 'Clear'], ['auto', 'From the photo'], ['pick', 'Pick a colour']].forEach(function (t) {
+    [['', 'Clear'], ['auto', 'Match photo'], ['pick', 'Custom color']].forEach(function (t) {
       var chip = el('button', {
         type: 'button', class: 'chip', role: 'radio', text: t[1],
         onclick: function () {
@@ -4912,7 +4901,7 @@ MENU_HTML = """<!doctype html>
       q('ck-layout').appendChild(chip);
     });
 
-    [['swipe', 'Swipe'], ['fade', 'Fade']].forEach(function (tr) {
+    [['swipe', 'Slide'], ['fade', 'Fade']].forEach(function (tr) {
       var chip = el('button', {
         type: 'button', class: 'chip', role: 'radio', text: tr[1],
         'aria-checked': tr[0] === (pc.transition || 'swipe') ? 'true' : 'false',
@@ -4967,14 +4956,14 @@ MENU_HTML = """<!doctype html>
       q('ck-tint-box').hidden = !photo;
       q('ck-photo-note').hidden = !photo;
       var h = q('ck-h');
-      if (h) h.textContent = photo ? 'Photo Clock' : 'Clock';
+      if (h) h.textContent = photo ? 'Photo Clock' : 'Minimal Clock';
       var lede = q('ck-lede');
       if (lede) {
         lede.textContent = photo
-          ? 'Full-screen photos with the time over them. Changes appear on your display as you make them.'
-          : 'The screen shows just the clock on black. Changes appear on your display as you make them.';
+          ? 'Full-screen photos with live clock. Changes preview live on your display.'
+          : 'Minimal clock on black. Changes preview live on your display.';
       }
-      firstChip.textContent = photo ? 'Standard' : 'Thin serif';
+      firstChip.textContent = photo ? 'Standard' : 'Serif';
       firstChip.style.fontFamily = photo ? CLOCK_PHOTO : CLOCK_SERIF;
       preview();
       Array.prototype.forEach.call(q('ck-style').children, function (b, i) {
@@ -4998,7 +4987,7 @@ MENU_HTML = """<!doctype html>
     q('ck-off').addEventListener('click', function () {
       sheet.close();
       saveScreen({ night_clock_hold: false }, 'change the clock')
-        .then(function () { if (!S.screen.night_clock_hold) toast('Your cards are back'); });
+        .then(function () { if (!S.screen.night_clock_hold) toast('Returned to cards'); });
     });
   }
 
